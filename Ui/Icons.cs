@@ -42,7 +42,6 @@ public static class Icons
         DriverAction.Download => Download,
         DriverAction.Update => Refresh,
         DriverAction.Installed => Check,
-        DriverAction.OpenRgb => Fan,
         DriverAction.RequestSupport => Plus,
         _ => null,
     });

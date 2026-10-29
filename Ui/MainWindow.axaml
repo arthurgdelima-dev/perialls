@@ -161,12 +161,6 @@
                                 </Flyout>
                             </Button.Flyout>
                         </Button>
-                        <Button x:Name="StartOpenRgbButton" Click="StartOpenRgb_Click" IsVisible="False"
-                                ToolTip.Tip="{local:T sidebar.openRgb}" Classes="ghost">
-                            <Viewbox Width="20" Height="20">
-                                <Path Classes="line" Data="{x:Static local:Icons.Fan}"/>
-                            </Viewbox>
-                        </Button>
                     </StackPanel>
                 </DockPanel>
 
