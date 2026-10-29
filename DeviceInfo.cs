@@ -19,7 +19,13 @@ public sealed class DeviceInfo
 
     // Endereço do aparelho no OpenRGB. Se estiver vazio, o aparelho não tem RGB controlável.
     public string? RgbLocation { get; set; }
-    public bool HasRgb => RgbLocation != null;
+    public bool HasRgb => RgbLocation != null || HasKeyboardLighting;
+
+    // Iluminação e Hz de teclados Akko/MonsGeek, pelo protocolo do driver oficial (sem OpenRGB).
+    public MonsGeekKeyboard.Lighting? KeyboardLighting { get; set; }
+    public bool HasKeyboardLighting => KeyboardLighting != null;
+    public byte? KeyboardEffect => KeyboardLighting?.Effect;
+    public int? ReportRateHz { get; set; }
 
     // DPI (só mouses Logitech com HID++, por enquanto). Para mudar, precisamos saber
     // em qual receptor (código USB) e em qual número dentro dele o mouse está.

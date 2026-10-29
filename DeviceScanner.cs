@@ -92,6 +92,9 @@ public static class DeviceScanner
         // 6) Logitech: nome real, bateria e DPI pelo protocolo HID++.
         AddLogitechInfo(devices);
 
+        // 7) Akko/MonsGeek: iluminação e Hz pelo protocolo do driver oficial.
+        AddMonsGeekInfo(devices);
+
         devices = devices.OrderBy(d => d.SortOrder).ThenBy(d => d.Name).ToList();
         return new ScanResult(devices, openRgbRunning);
     }
@@ -198,6 +201,29 @@ public static class DeviceScanner
         row.DpiPresets = device.DpiPresets;
         row.LogitechProductId = productId;
         row.LogitechIndex = device.Index;
+    }
+
+    private static void AddMonsGeekInfo(List<DeviceInfo> devices)
+    {
+        var row = devices.FirstOrDefault(d => d.HardwareIds.Contains("VID_3151&PID_502D"));
+        if (row == null)
+            return;
+
+        MonsGeekKeyboard.State? state;
+        try
+        {
+            state = MonsGeekKeyboard.Query();
+        }
+        catch
+        {
+            return; // teclado ocupado ou respondeu errado: o cartão aparece sem os controles
+        }
+        if (state == null)
+            return; // não é um modelo que conhecemos
+
+        row.Name = $"Akko/MonsGeek {state.Model}";
+        row.KeyboardLighting = state.Lighting;
+        row.ReportRateHz = state.ReportRateHz;
     }
 
     private static IEnumerable<DeviceInfo> ToDevices(List<Part> parts)

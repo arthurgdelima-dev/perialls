@@ -111,6 +111,26 @@ public partial class MainWindow : Window
         }
 
         byte r = (byte)(rgb >> 16), g = (byte)(rgb >> 8), b = (byte)rgb;
+
+        if (device.KeyboardLighting is { } current)
+        {
+            // Preto apaga (brilho 0). Outra cor: cor única, e volta o brilho se estava apagado.
+            // Efeitos que não usam cor (Neon) trocam para o estático.
+            var effect = MonsGeekKeyboard.Effects.FirstOrDefault(x => x.Id == current.Effect);
+            var lighting = rgb == 0
+                ? current with { Brightness = 0 }
+                : current with
+                {
+                    R = r, G = g, B = b,
+                    Multicolor = false,
+                    Brightness = current.Brightness == 0 ? (byte)4 : current.Brightness,
+                    Effect = effect is { UsesColor: false } ? (byte)1 : current.Effect,
+                };
+            await ApplyKeyboardLightingAsync(device, lighting,
+                rgb == 0 ? "LEDs apagados" : $"Cor #{hex.ToUpperInvariant()} aplicada");
+            return;
+        }
+
         try
         {
             await Task.Run(() => OpenRgb.SetColor(device.RgbLocation!, r, g, b));
@@ -153,6 +173,60 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             StatusText.Text = "Não deu para mudar o DPI: " + ex.Message;
+        }
+    }
+
+    private async void KeyboardEffect_Changed(object sender, SelectionChangedEventArgs e)
+    {
+        // Sem item removido = é só a tela mostrando o efeito atual, não um clique.
+        if (e.RemovedItems.Count == 0 || sender is not ComboBox { DataContext: DeviceInfo device, SelectedItem: MonsGeekKeyboard.Effect effect })
+            return;
+        if (device.KeyboardLighting is { } current && current.Effect != effect.Id)
+            await ApplyKeyboardLightingAsync(device, current with { Effect = effect.Id, Option = effect.DefaultOption },
+                $"Efeito {effect.Name} aplicado");
+    }
+
+    private async void KeyboardBrightness_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: DeviceInfo { KeyboardLighting: { } current } device, DataContext: int level })
+            await ApplyKeyboardLightingAsync(device, current with { Brightness = (byte)level }, $"Brilho {level} aplicado");
+    }
+
+    private async void KeyboardSpeed_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: DeviceInfo { KeyboardLighting: { } current } device, DataContext: int level })
+            await ApplyKeyboardLightingAsync(device, current with { Speed = (byte)level }, $"Velocidade {level} aplicada");
+    }
+
+    private async Task ApplyKeyboardLightingAsync(DeviceInfo device, MonsGeekKeyboard.Lighting lighting, string message)
+    {
+        try
+        {
+            await Task.Run(() => MonsGeekKeyboard.SetLighting(lighting));
+            device.KeyboardLighting = lighting;
+            ShowDevices();
+            StatusText.Text = $"{message}: {device.Name}";
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = "Não deu para mudar a iluminação: " + ex.Message;
+        }
+    }
+
+    private async void ReportRate_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: DeviceInfo device, DataContext: int hz })
+            return;
+        try
+        {
+            await Task.Run(() => MonsGeekKeyboard.SetReportRate(hz));
+            device.ReportRateHz = hz;
+            ShowDevices();
+            StatusText.Text = $"{hz} Hz aplicado: {device.Name}";
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = "Não deu para mudar o Hz: " + ex.Message;
         }
     }
 

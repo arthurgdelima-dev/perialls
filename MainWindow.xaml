@@ -2,6 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:sys="clr-namespace:System;assembly=mscorlib"
+        xmlns:local="clr-namespace:Perialls"
         Title="Perialls" Width="660" Height="760" MinWidth="380" MinHeight="420"
         WindowStartupLocation="CenterScreen"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent" ResizeMode="CanResize"
@@ -38,6 +39,15 @@
             <sys:String>#FF00A0</sys:String>
             <sys:String>#FFFFFF</sys:String>
             <sys:String>#000000</sys:String>
+        </x:Array>
+
+        <!-- Níveis de brilho e velocidade dos teclados Akko/MonsGeek (0 a 4). -->
+        <x:Array x:Key="KeyboardLevels" Type="sys:Int32">
+            <sys:Int32>0</sys:Int32>
+            <sys:Int32>1</sys:Int32>
+            <sys:Int32>2</sys:Int32>
+            <sys:Int32>3</sys:Int32>
+            <sys:Int32>4</sys:Int32>
         </x:Array>
 
         <!-- Desenho de linha branca: o ícone escolhido conforme o tipo do aparelho (propriedade Icon). -->
@@ -378,6 +388,84 @@
                                                                  ToolTip="DPI personalizado + Enter"
                                                                  KeyDown="DpiCustom_KeyDown"/>
                                                     </WrapPanel>
+                                                </StackPanel>
+
+                                                <!-- Teclado Akko/MonsGeek: efeito, brilho, velocidade e Hz -->
+                                                <StackPanel Margin="0,4,0,0">
+                                                    <StackPanel.Style>
+                                                        <Style TargetType="StackPanel">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding HasKeyboardLighting}" Value="True">
+                                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </StackPanel.Style>
+                                                    <ComboBox ItemsSource="{x:Static local:MonsGeekKeyboard.Effects}"
+                                                              DisplayMemberPath="Name" SelectedValuePath="Id"
+                                                              SelectedValue="{Binding KeyboardEffect, Mode=OneWay}"
+                                                              SelectionChanged="KeyboardEffect_Changed"
+                                                              FontSize="11" MinWidth="140" HorizontalAlignment="Center"
+                                                              Margin="0,0,0,8" ToolTip="Efeito de iluminação"/>
+
+                                                    <TextBlock FontSize="12" Foreground="#D8D8DE" TextAlignment="Center" Margin="0,0,0,4">
+                                                        <Run Text="Brilho"/>
+                                                        <Run Text="{Binding KeyboardLighting.Brightness, Mode=OneWay}" FontWeight="SemiBold"/>
+                                                    </TextBlock>
+                                                    <ItemsControl ItemsSource="{StaticResource KeyboardLevels}" HorizontalAlignment="Center">
+                                                        <ItemsControl.ItemsPanel>
+                                                            <ItemsPanelTemplate>
+                                                                <WrapPanel/>
+                                                            </ItemsPanelTemplate>
+                                                        </ItemsControl.ItemsPanel>
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <Button Content="{Binding}" Click="KeyboardBrightness_Click"
+                                                                        Style="{StaticResource PillButton}"
+                                                                        Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ItemsControl}}"/>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+
+                                                    <TextBlock FontSize="12" Foreground="#D8D8DE" TextAlignment="Center" Margin="0,4,0,4">
+                                                        <Run Text="Velocidade"/>
+                                                        <Run Text="{Binding KeyboardLighting.Speed, Mode=OneWay}" FontWeight="SemiBold"/>
+                                                    </TextBlock>
+                                                    <ItemsControl ItemsSource="{StaticResource KeyboardLevels}" HorizontalAlignment="Center">
+                                                        <ItemsControl.ItemsPanel>
+                                                            <ItemsPanelTemplate>
+                                                                <WrapPanel/>
+                                                            </ItemsPanelTemplate>
+                                                        </ItemsControl.ItemsPanel>
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <Button Content="{Binding}" Click="KeyboardSpeed_Click"
+                                                                        Style="{StaticResource PillButton}"
+                                                                        Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ItemsControl}}"/>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+
+                                                    <TextBlock FontSize="12" Foreground="#D8D8DE" TextAlignment="Center" Margin="0,4,0,4">
+                                                        <Run Text="Taxa de atualização"/>
+                                                        <Run Text="{Binding ReportRateHz, Mode=OneWay}" FontWeight="SemiBold"/>
+                                                        <Run Text="Hz"/>
+                                                    </TextBlock>
+                                                    <ItemsControl ItemsSource="{x:Static local:MonsGeekKeyboard.ReportRates}" HorizontalAlignment="Center">
+                                                        <ItemsControl.ItemsPanel>
+                                                            <ItemsPanelTemplate>
+                                                                <WrapPanel HorizontalAlignment="Center"/>
+                                                            </ItemsPanelTemplate>
+                                                        </ItemsControl.ItemsPanel>
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <Button Content="{Binding}" Click="ReportRate_Click"
+                                                                        Style="{StaticResource PillButton}"
+                                                                        Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ItemsControl}}"/>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
                                                 </StackPanel>
                                             </StackPanel>
                                         </Grid>
