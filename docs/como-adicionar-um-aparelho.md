@@ -25,9 +25,9 @@ faz:
 O driver embutido sempre ganha. Drivers JSON para esses VID/PID são **ignorados** (não aparece ícone de
 download, nem um driver na pasta `local` é usado) e o app nunca envia comandos JSON para eles. Um
 driver JSON da Logitech é recusado na validação. A lista de aparelhos embutidos fica em
-`BuiltInDevices`, no arquivo `DriverCatalog.cs`.
+`BuiltInDevices`, no arquivo [`JsonDrivers/DriverCatalog.cs`](../JsonDrivers/DriverCatalog.cs).
 
-Quer melhorar um desses? Mande o Pull Request no código C# (`MonsGeekKeyboard.cs`, `LogitechHidpp.cs`),
+Quer melhorar um desses? Mande o Pull Request no código C# ([`BuiltIn/MonsGeekKeyboard.cs`](../BuiltIn/MonsGeekKeyboard.cs), [`BuiltIn/LogitechHidpp.cs`](../BuiltIn/LogitechHidpp.cs)),
 e não um JSON.
 
 ## 1. Descubra o código USB (VID/PID)
@@ -128,7 +128,7 @@ o VID do seu aparelho.
    ```
    `devices` usa o formato `VID_xxxx&PID_yyyy`, com letras maiúsculas, e precisa bater com o arquivo.
 4. Se for um fabricante novo e você achou comandos perigosos, liste no PR (ou acrescente em
-   `BlockedCommands`, no arquivo `DriverFile.cs`).
+   `BlockedCommands`, no arquivo [`JsonDrivers/DriverFile.cs`](../JsonDrivers/DriverFile.cs)).
 5. No PR, conte em qual modelo e sistema você testou e de onde vieram os comandos.
 
 Para mudar um driver que já existe: altere o arquivo, aumente a `version` e atualize o `sha256` no
