@@ -308,9 +308,35 @@
                                             </Button>
 
                                             <!-- Nome e status -->
+                                            <!-- Dois cliques no nome para renomear (Enter salva, Esc cancela) -->
                                             <TextBlock Grid.Row="1" Text="{Binding Name}" FontSize="14" FontWeight="SemiBold"
                                                        Margin="0,8,0,0" TextAlignment="Center" TextTrimming="CharacterEllipsis"
-                                                       ToolTip="{Binding Name}"/>
+                                                       ToolTip="{Binding Name}" MouseLeftButtonDown="DeviceName_MouseDown">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsRenaming}" Value="True">
+                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                            <TextBox Grid.Row="1" Text="{Binding Name, Mode=OneWay}" FontSize="13" Height="24"
+                                                     Margin="0,8,0,0" HorizontalContentAlignment="Center"
+                                                     ToolTip="Enter salva · Esc cancela · vazio volta ao nome original"
+                                                     Loaded="RenameBox_Loaded" KeyDown="RenameBox_KeyDown" LostFocus="RenameBox_LostFocus">
+                                                <TextBox.Style>
+                                                    <Style TargetType="TextBox" BasedOn="{StaticResource SmallBox}">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsRenaming}" Value="True">
+                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBox.Style>
+                                            </TextBox>
                                             <TextBlock Grid.Row="2" Foreground="#A8A8B3" FontSize="12" Margin="0,2,0,0"
                                                        TextAlignment="Center" TextTrimming="CharacterEllipsis">
                                                 <Run Text="{Binding Kind, Mode=OneWay}"/>

@@ -30,6 +30,9 @@ Não substitui os apps das marcas (G Hub, Synapse etc.). É só uma tela simples
 3. Clique em **Atualizar** sempre que conectar ou desconectar um aparelho. O app não fica
    verificando sozinho.
 
+Dê **dois cliques no nome** de um aparelho para renomear (Enter salva, Esc cancela, deixar vazio volta
+ao nome original). Os nomes ficam em `%AppData%\Perialls\nomes.txt`.
+
 Passe o mouse num cartão para **ocultar** um aparelho que você não quer ver. O botão do olho na barra
 lateral mostra os ocultos de novo. A lista de ocultos fica em `%AppData%\Perialls\ocultos.txt`.
 

@@ -10,6 +10,7 @@ public partial class MainWindow : Window
 {
     private List<DeviceInfo> _devices = [];
     private readonly HashSet<string> _hidden = HiddenDevices.Load();
+    private readonly Dictionary<string, string> _names = DeviceNames.Load();
 
     // Se fomos nós que abrimos o OpenRGB, fechamos ele junto com o app (nada fica rodando).
     private Process? _openRgbWeStarted;
@@ -37,6 +38,9 @@ public partial class MainWindow : Window
             {
                 d.IsHidden = _hidden.Contains(d.Key);
                 d.Photo = DevicePhotos.Find(d);
+                d.OriginalName = d.Name;
+                if (_names.TryGetValue(d.Key, out var custom))
+                    d.Name = custom;
             }
             ShowDevices();
 
@@ -87,6 +91,61 @@ public partial class MainWindow : Window
 
         HiddenDevices.Save(_hidden);
         ShowDevices();
+    }
+
+    // Dois cliques no nome abrem a caixa para renomear.
+    private void DeviceName_MouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ClickCount != 2 || (sender as FrameworkElement)?.DataContext is not DeviceInfo device)
+            return;
+
+        e.Handled = true; // não deixa o clique virar "arrastar a janela"
+        device.IsRenaming = true;
+        ShowDevices();
+    }
+
+    private void RenameBox_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (sender is TextBox { DataContext: DeviceInfo { IsRenaming: true } } box)
+        {
+            box.Focus();
+            box.SelectAll();
+        }
+    }
+
+    // Enter salva, Esc cancela. Nome vazio volta para o nome original.
+    private void RenameBox_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (sender is not TextBox { DataContext: DeviceInfo device } box || e.Key is not (Key.Enter or Key.Escape))
+            return;
+
+        if (e.Key == Key.Enter)
+        {
+            var name = box.Text.Trim();
+            if (name == "" || name == device.OriginalName)
+            {
+                _names.Remove(device.Key);
+                device.Name = device.OriginalName;
+            }
+            else
+            {
+                _names[device.Key] = name;
+                device.Name = name;
+            }
+            DeviceNames.Save(_names);
+        }
+
+        device.IsRenaming = false;
+        ShowDevices();
+    }
+
+    private void RenameBox_LostFocus(object sender, RoutedEventArgs e)
+    {
+        if (sender is TextBox { DataContext: DeviceInfo { IsRenaming: true } device })
+        {
+            device.IsRenaming = false;
+            ShowDevices();
+        }
     }
 
     private async void Swatch_Click(object sender, RoutedEventArgs e)

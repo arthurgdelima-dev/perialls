@@ -38,6 +38,10 @@ public sealed class DeviceInfo
     // Foto do aparelho (de Assets/Devices). Se for null, a tela mostra o ícone grande.
     public ImageSource? Photo { get; set; }
 
+    // Nome que o aparelho/Windows informa, antes de você renomear. Usado para voltar ao original.
+    public string OriginalName { get; set; } = "";
+    public bool IsRenaming { get; set; }
+
     public bool IsHidden { get; set; }
     public string HideLabel => IsHidden ? "Mostrar" : "Ocultar";
     public double Opacity => IsHidden ? 0.45 : 1.0;
