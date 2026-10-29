@@ -69,7 +69,7 @@ recebe:  8f 00 09 00 00 00 00 09 03
 | 1 | efeito (tabela abaixo) |
 | 2 | **4 − velocidade** (velocidade de 0 a 4; o valor fica invertido no pacote) |
 | 3 | brilho, de 0 a 4 |
-| 4 | `opção << 4 \| modo de cor`: modo `7` = cor única (usa o RGB), `8` = multicor |
+| 4 | `opção << 4 \| modo de cor`: modo `8` = cor única (usa o RGB), `7` = multicor. O código do site chama o 8 de "multicor", mas no teclado é o contrário (testado: com `07` a cor escolhida é ignorada) |
 | 5, 6, 7 | R, G, B |
 | 8 | checksum Bit8 |
 
@@ -88,7 +88,7 @@ Exemplo de brilho (o brilho cai de 4 para 0 e o checksum sobe junto):
 ```
 Estado original do teclado testado (resposta do `0x87`):
 ```
-87 0f 02 04 07 b4 b4 b4  →  efeito 15 (onda circular), velocidade 2, brilho 4, cor única (180,180,180)
+87 0f 02 04 07 b4 b4 b4  →  efeito 15 (onda circular), velocidade 2, brilho 4, multicolor
 ```
 
 **Efeitos que o site oferece para este modelo** (os números vêm da `LightList` do site):

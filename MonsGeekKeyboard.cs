@@ -32,8 +32,10 @@ public static class MonsGeekKeyboard
     public static readonly IReadOnlyList<int> ReportRates = [125, 250, 500, 1000, 2000, 4000, 8000];
 
     private const byte MaxSpeed = 4;
-    private const byte SingleColor = 7;
-    private const byte Multicolor = 8;
+    // O código do site chama o 8 de "multicor", mas no teclado é o contrário:
+    // o driver oficial mandou 8 quando o usuário escolheu vermelho, e com 7 a cor é ignorada.
+    private const byte SingleColor = 8;
+    private const byte Multicolor = 7;
 
     public sealed record Effect(byte Id, string Name, bool UsesColor = true, byte DefaultOption = 0);
 
