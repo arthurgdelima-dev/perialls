@@ -65,6 +65,8 @@ public partial class MainWindow : Window
 
             if (catalogWarning != null)
                 StatusText.Text += "\n" + catalogWarning;
+            foreach (var problem in DriverCatalog.Problems)
+                StatusText.Text += "\n" + problem;
 
             if (result.HidAccessDenied)
                 StatusText.Text += "\nSem permissão para falar com Logitech/Akko: instale a regra do udev (veja o README).";
@@ -185,8 +187,17 @@ public partial class MainWindow : Window
                 await OpenLinkAsync(DriverCatalog.SupportRequestUrl(device));
                 StatusText.Text = "Pedido de suporte aberto no navegador. Confira os dados e clique em \"Create\".";
                 break;
-            case DriverAction.Download or DriverAction.Update:
-                StatusText.Text = $"Driver {device.DriverEntry?.Name} {device.DriverEntry?.Version} disponível.";
+            case DriverAction.Download or DriverAction.Update when device.DriverEntry is { } entry:
+                StatusText.Text = $"Baixando o driver {entry.Name}...";
+                var (ok, message) = await DriverCatalog.InstallAsync(entry);
+                StatusText.Text = message;
+                if (ok)
+                {
+                    // Ativa na hora: os cartões dos aparelhos desse driver ganham os controles.
+                    foreach (var d in _devices)
+                        DriverCatalog.Describe(d);
+                    ShowDevices();
+                }
                 break;
             case DriverAction.Installed:
                 StatusText.Text = device.DriverTip;
@@ -242,6 +253,13 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (device.Driver?.Controls.FirstOrDefault(c => c.Kind == DriverControlKind.Color) is { } colorControl)
+        {
+            await ApplyDriverAsync(device, colorControl, new Dictionary<string, int> { ["r"] = r, ["g"] = g, ["b"] = b },
+                $"Cor #{hex.ToUpperInvariant()} aplicada");
+            return;
+        }
+
         try
         {
             await Task.Run(() => OpenRgb.SetColor(device.RgbLocation!, r, g, b));
@@ -252,6 +270,47 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             StatusText.Text = "Não deu para mudar a cor: " + ex.Message;
+        }
+    }
+
+    private async void DriverChoice_Click(object? sender, RoutedEventArgs e)
+    {
+        if ((sender as Control)?.DataContext is DriverChoice choice)
+            await ApplyDriverAsync(choice.Device, choice.Control, choice.Sets, $"{choice.Control.Label} {choice.Label} aplicado");
+    }
+
+    private async void DriverList_Changed(object? sender, SelectionChangedEventArgs e)
+    {
+        // Sem item removido = é só a tela mostrando a opção atual, não um clique.
+        if (e.RemovedItems.Count > 0 && (sender as ComboBox)?.SelectedItem is DriverChoice { IsCurrent: false } choice)
+            await ApplyDriverAsync(choice.Device, choice.Control, choice.Sets, $"{choice.Control.Label} {choice.Label} aplicado");
+    }
+
+    // Envia um comando do driver JSON. Os valores só mudam na tela se o envio deu certo.
+    private async Task ApplyDriverAsync(DeviceInfo device, DriverControl control, IReadOnlyDictionary<string, int> sets, string message)
+    {
+        if (device.Driver is not { } driver)
+            return;
+
+        var values = new Dictionary<string, int>(device.DriverValues);
+        foreach (var (key, value) in sets)
+            values[key] = value;
+
+        try
+        {
+            await Task.Run(() => DriverRunner.Send(driver, control, values, device));
+            foreach (var (key, value) in sets)
+                device.DriverValues[key] = value;
+            ShowDevices();
+            StatusText.Text = $"{message}: {device.Name}";
+        }
+        catch (DriverException ex)
+        {
+            StatusText.Text = $"Nada foi enviado: {ex.Message}.";
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = "Não deu para falar com o aparelho: " + ex.Message;
         }
     }
 

@@ -21,11 +21,13 @@ public static class DriverCatalog
     private static readonly string DataFolder = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Perialls");
 
-    // Drivers baixados (e, em "local", os que você está testando).
-    public static readonly string DriversFolder = Path.Combine(DataFolder, "drivers");
+    // Drivers baixados e, na subpasta "local", os que você está testando (sem passar pelo índice).
     // Cópia do índice e da lista do OpenRGB, para funcionar sem internet.
-    // Um índice de teste (PERIALLS_DRIVERS) fica numa cópia separada, para não misturar com o de verdade.
-    private static string CacheFolder => Path.Combine(DataFolder, Source == DefaultSource ? "indice" : "indice-teste");
+    // Um índice de teste (PERIALLS_DRIVERS) usa pastas separadas, para não misturar com o de verdade.
+    public static string DriversFolder => Path.Combine(DataFolder, IsTestSource ? "drivers-teste" : "drivers");
+    public static string LocalDriversFolder => Path.Combine(DriversFolder, "local");
+    private static string CacheFolder => Path.Combine(DataFolder, IsTestSource ? "indice-teste" : "indice");
+    private static string InstalledFile => Path.Combine(DriversFolder, "_instalados.json");
 
     // Limites de tamanho: nada aqui deveria passar disso.
     private const int MaxIndexBytes = 1024 * 1024;
@@ -37,6 +39,17 @@ public static class DriverCatalog
     public static DriverIndex Index { get; private set; } = new();
     private static HashSet<string> _openRgbIds = [];
 
+    // Drivers instalados: a versão e o hash de cada um (conferidos no download) e os já validados.
+    private static Dictionary<string, InstalledDriver> _installed = [];
+    private static readonly Dictionary<string, Driver> Loaded = [];
+    private static readonly List<Driver> LocalDrivers = [];
+
+    // Valores atuais dos controles de cada aparelho (brilho, efeito...), guardados enquanto o app está aberto.
+    private static readonly Dictionary<string, Dictionary<string, int>> Values = [];
+
+    // Drivers que estão no disco mas não podem ser usados (alterados ou inválidos), para avisar no rodapé.
+    public static List<string> Problems { get; } = [];
+
     // Os nomes de arquivo só podem ter letras minúsculas, números e "-": nada de pastas ("../").
     private static readonly Regex SafeFileName = new(@"^[a-z0-9-]{1,40}\.json$");
     private static readonly Regex DeviceId = new(@"^VID_[0-9A-F]{4}&PID_[0-9A-F]{4}$");
@@ -44,6 +57,7 @@ public static class DriverCatalog
 
     private static string Source =>
         Environment.GetEnvironmentVariable("PERIALLS_DRIVERS") is { Length: > 0 } s ? s : DefaultSource;
+    private static bool IsTestSource => Source != DefaultSource;
 
     // Baixa o índice (ou usa a cópia salva) e a lista de aparelhos do OpenRGB.
     // Retorna uma mensagem para o rodapé quando algo deu errado, ou null.
@@ -66,7 +80,97 @@ public static class DriverCatalog
         Index = index ?? new DriverIndex();
 
         _openRgbIds = await LoadOpenRgbListAsync();
+        LoadInstalled();
         return warning;
+    }
+
+    // Lê os drivers já baixados. Cada um é conferido de novo: o hash precisa ser o mesmo do download.
+    private static void LoadInstalled()
+    {
+        Problems.Clear();
+        Loaded.Clear();
+        LocalDrivers.Clear();
+
+        try
+        {
+            _installed = ReadFile(InstalledFile, MaxIndexBytes) is { } json
+                ? JsonSerializer.Deserialize<Dictionary<string, InstalledDriver>>(json, Json) ?? []
+                : [];
+        }
+        catch (JsonException)
+        {
+            _installed = [];
+        }
+
+        foreach (var (file, record) in _installed)
+        {
+            if (!SafeFileName.IsMatch(file) || ReadFile(Path.Combine(DriversFolder, file), Driver.MaxFileBytes) is not { } data)
+                continue; // apagado: o ícone volta a oferecer o download
+            if (!HashMatches(data, record.Sha256))
+            {
+                Problems.Add($"O driver {record.Name} foi alterado no disco e não será usado. Baixe de novo.");
+                continue;
+            }
+            if (Driver.Load(data, isLocal: false, out var error) is { } driver)
+                Loaded[file] = driver;
+            else
+                Problems.Add($"Driver {record.Name} inválido ({error}). Nada será enviado.");
+        }
+
+        // Drivers em teste: valem as mesmas regras, só não há hash para conferir.
+        try
+        {
+            foreach (var path in Directory.Exists(LocalDriversFolder) ? Directory.GetFiles(LocalDriversFolder, "*.json") : [])
+            {
+                var name = Path.GetFileName(path);
+                if (ReadFile(path, Driver.MaxFileBytes) is not { } data)
+                    Problems.Add($"Driver local {name} grande demais.");
+                else if (Driver.Load(data, isLocal: true, out var error) is { } driver)
+                    LocalDrivers.Add(driver);
+                else
+                    Problems.Add($"Driver local {name} inválido: {error}. Nada será enviado.");
+            }
+        }
+        catch
+        {
+            // Pasta inacessível: seguimos sem os drivers locais.
+        }
+    }
+
+    // Baixa um driver do índice, confere o hash e as regras, e só então salva.
+    public static async Task<(bool Ok, string Message)> InstallAsync(DriverIndexEntry entry)
+    {
+        var data = await TryFetchAsync(entry.File, Driver.MaxFileBytes);
+        if (data == null)
+            return (false, $"Não deu para baixar o driver {entry.Name}. Confira a internet e tente de novo.");
+        if (!HashMatches(data, entry.Sha256))
+            return (false, $"O driver {entry.Name} baixado não confere com o índice (hash SHA-256 diferente). Nada foi instalado.");
+
+        var driver = Driver.Load(data, isLocal: false, out var error);
+        if (driver == null)
+            return (false, $"Driver {entry.Name} inválido: {error}. Nada foi instalado.");
+        if (!entry.Devices.All(driver.HardwareIds.Contains))
+            return (false, $"O índice e o driver {entry.Name} não listam os mesmos aparelhos. Nada foi instalado.");
+
+        try
+        {
+            Directory.CreateDirectory(DriversFolder);
+            await File.WriteAllBytesAsync(Path.Combine(DriversFolder, entry.File), data);
+            _installed[entry.File] = new InstalledDriver
+            {
+                Name = entry.Name,
+                Version = entry.Version,
+                Sha256 = entry.Sha256.ToLowerInvariant(),
+            };
+            await File.WriteAllTextAsync(InstalledFile, JsonSerializer.Serialize(_installed, new JsonSerializerOptions { WriteIndented = true }));
+        }
+        catch (Exception ex)
+        {
+            return (false, $"Não deu para salvar o driver {entry.Name}: {ex.Message}");
+        }
+
+        Loaded[entry.File] = driver;
+        return (true, $"Driver {entry.Name} {entry.Version} instalado.");
     }
 
     // A lista do OpenRGB só é baixada de novo quando o hash no índice muda.
@@ -97,15 +201,52 @@ public static class DriverCatalog
     }
 
     // O que o ícone do cartão deve mostrar para este aparelho.
+    // Também liga o driver instalado ao aparelho, para os controles aparecerem no cartão.
     public static void Describe(DeviceInfo device)
     {
         var entry = Index.Drivers.FirstOrDefault(e => e.Devices.Any(device.HardwareIds.Contains));
         device.DriverEntry = entry;
+        device.Driver = null;
 
-        if (entry != null)
+        // Um driver em teste (pasta "local") tem prioridade sobre o do índice.
+        var local = LocalDrivers.FirstOrDefault(d => d.HardwareIds.Overlaps(device.HardwareIds));
+        var installedFile = entry?.File ?? Loaded.FirstOrDefault(kv => kv.Value.HardwareIds.Overlaps(device.HardwareIds)).Key;
+        var driver = local ?? (installedFile != null ? Loaded.GetValueOrDefault(installedFile) : null);
+        if (driver != null)
+        {
+            device.Driver = driver;
+            var key = device.Key + "|" + driver.Name;
+            if (!Values.TryGetValue(key, out var values))
+                Values[key] = values = new Dictionary<string, int>(driver.InitialValues);
+            device.DriverValues = values;
+        }
+
+        var record = entry != null ? _installed.GetValueOrDefault(entry.File) : null;
+        if (local != null)
+        {
+            device.DriverAction = DriverAction.Installed;
+            device.DriverTip = $"Driver local em teste: {local.Name}";
+        }
+        else if (entry != null && driver != null && record?.Version == entry.Version)
+        {
+            device.DriverAction = DriverAction.Installed;
+            device.DriverTip = $"Driver {entry.Name} {entry.Version} instalado";
+        }
+        else if (entry != null && driver != null)
+        {
+            device.DriverAction = DriverAction.Update;
+            device.DriverTip = $"Atualizar o driver {entry.Name}: versão {record?.Version} → {entry.Version}";
+        }
+        else if (entry != null)
         {
             device.DriverAction = DriverAction.Download;
             device.DriverTip = $"Baixar driver {entry.Name} (versão {entry.Version}): ativa funções extras deste aparelho";
+        }
+        else if (driver != null)
+        {
+            // Instalado, mas saiu do índice: continua funcionando.
+            device.DriverAction = DriverAction.Installed;
+            device.DriverTip = $"Driver {driver.Name} instalado";
         }
         else if (device.HasRgb || device.HasDpi || device.HasKeyboardLighting)
         {
@@ -252,6 +393,14 @@ public sealed class DriverIndexEntry
     public string Version { get; set; } = "";
     public string Sha256 { get; set; } = "";
     public List<string> Devices { get; set; } = [];
+}
+
+// O que foi baixado: a versão e o hash conferidos na hora do download.
+public sealed class InstalledDriver
+{
+    public string Name { get; set; } = "";
+    public string Version { get; set; } = "";
+    public string Sha256 { get; set; } = "";
 }
 
 public sealed class IndexedFile

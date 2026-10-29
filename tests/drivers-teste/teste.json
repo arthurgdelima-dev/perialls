@@ -1,5 +1,5 @@
 {
-  "name": "Driver de teste",
+  "name": "Teclado Dell (teste)",
   "devices": [{ "vid": "0x413C", "pid": "0x2113", "model": "Dell KB216 (só para testar o app)" }],
   "interface": { "usagePage": "0xFF00", "reportId": 0, "reportLength": 64, "type": "feature" },
   "checksum": "none",

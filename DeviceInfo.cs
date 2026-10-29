@@ -20,7 +20,7 @@ public sealed class DeviceInfo
 
     // Endereço do aparelho no OpenRGB. Se estiver vazio, o aparelho não tem RGB controlável.
     public string? RgbLocation { get; set; }
-    public bool HasRgb => RgbLocation != null || HasKeyboardLighting;
+    public bool HasRgb => RgbLocation != null || HasKeyboardLighting || DriverHasColor;
 
     // Iluminação e Hz de teclados Akko/MonsGeek, pelo protocolo do driver oficial (sem OpenRGB).
     public MonsGeekKeyboard.Lighting? KeyboardLighting { get; set; }
@@ -59,6 +59,14 @@ public sealed class DeviceInfo
     public DriverIndexEntry? DriverEntry { get; set; }
     public bool HasDriverAction => DriverAction != DriverAction.None;
 
+    // Driver JSON instalado para este aparelho e os valores atuais das variáveis dele.
+    public Driver? Driver { get; set; }
+    public Dictionary<string, int> DriverValues { get; set; } = [];
+    public bool DriverHasColor => Driver?.Controls.Any(c => c.Kind == DriverControlKind.Color) == true;
+    public bool HasDriverControls => DriverControlViews.Any();
+    public IEnumerable<DriverControlView> DriverControlViews =>
+        Driver?.Controls.Where(c => c.Kind != DriverControlKind.Color).Select(c => new DriverControlView(this, c)) ?? [];
+
     // Usado só para ordenar a lista (controles primeiro, áudio no fim).
     public int SortOrder { get; set; }
 
@@ -85,3 +93,35 @@ public sealed record ColorChoice(DeviceInfo Device, string Hex)
 {
     public IBrush Brush { get; } = SolidColorBrush.Parse(Hex);
 }
+
+// Um controle do driver JSON como aparece no cartão: título, valor atual e botões (ou lista, se forem muitos).
+public sealed class DriverControlView
+{
+    public DriverControlView(DeviceInfo device, DriverControl control)
+    {
+        Label = control.Label;
+        var values = device.DriverValues;
+        Choices = control.Kind == DriverControlKind.Range
+            ? Enumerable.Range(control.Min, control.Max - control.Min + 1)
+                .Select(v => new DriverChoice(device, control, v.ToString(), new Dictionary<string, int> { [control.Key] = v },
+                    values.GetValueOrDefault(control.Key, -1) == v))
+                .ToList()
+            : control.Options
+                .Select(o => new DriverChoice(device, control, o.Label, o.Sets,
+                    o.Sets.All(kv => values.TryGetValue(kv.Key, out var v) && v == kv.Value)))
+                .ToList();
+        Selected = Choices.FirstOrDefault(c => c.IsCurrent);
+    }
+
+    public string Label { get; }
+    public List<DriverChoice> Choices { get; }
+    public DriverChoice? Selected { get; }
+    public string Current => Selected?.Label ?? "—";
+
+    // Até 7 opções viram botões; mais que isso, uma lista para escolher.
+    public bool IsList => Choices.Count > 7;
+}
+
+// Uma escolha de um controle do driver: o nome na tela e as variáveis que ela muda.
+public sealed record DriverChoice(DeviceInfo Device, DriverControl Control, string Label,
+    IReadOnlyDictionary<string, int> Sets, bool IsCurrent);
