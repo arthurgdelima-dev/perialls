@@ -5,3 +5,4 @@ obj/
 
 # Capturas do teclado: podem ter dados pessoais (ex.: teclas digitadas). Os exemplos úteis vão para docs/.
 captures/
+*_wpftmp.csproj
