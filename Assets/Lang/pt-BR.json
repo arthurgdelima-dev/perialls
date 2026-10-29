@@ -14,6 +14,7 @@
   "card.renameTip": "Enter salva · Esc cancela · vazio volta ao nome original",
   "card.battery": "Bateria",
   "card.customColorTip": "Cor personalizada (ex.: #FF8800) + Enter",
+  "card.dpiNote": "Vale até o mouse ser desligado.",
   "card.customDpiTip": "DPI personalizado + Enter",
   "card.effectTip": "Efeito de iluminação",
 

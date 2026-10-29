@@ -135,14 +135,14 @@ git push --tags
 A few minutes later the Release shows up with the Windows `.exe`, the Linux `.tar.gz`, the hashes and
 notes generated from the commits. To follow it, see the repository's *Actions* tab.
 
-## Adding a device photo
+## Device photos
 
-1. Put a PNG in `Assets/Devices/`.
-2. Add a line to `Assets/Devices/devices.json` linking the device's USB code to the file:
-   ```json
-   "VID_046D&PID_4093": "logitech-pro-x-superlight.png"
-   ```
-3. Build again. Devices without a photo show their type icon instead.
+Photos are automatic: nobody needs to add images. When a device has no saved photo, the app looks for
+one on the internet in the background (Bing and, if that fails, DuckDuckGo) and keeps it only on your PC,
+in `%LocalAppData%\Perialls\imagens` (on Linux, `~/.local/share/Perialls/imagens`). To do that, **the
+device's name (brand and model) is sent to the search engine**. The search only accepts images with a
+transparent background and a square shape; if nothing fits or there is no internet, the card shows the
+type icon and the app tries again on the next Refresh.
 
 The USB code (VID/PID) shows up in Device Manager: *Properties* → *Details* → *Hardware Ids*.
 On Linux, in the `lsusb` command (e.g. `ID 046d:4093` becomes `VID_046D&PID_4093`).

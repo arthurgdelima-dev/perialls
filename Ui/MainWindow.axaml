@@ -297,9 +297,12 @@
                                                 </WrapPanel>
 
                                                 <StackPanel IsVisible="{Binding HasDpi}">
-                                                    <TextBlock Classes="value" Margin="0,0,0,6">
+                                                    <TextBlock Classes="value" Margin="0,0,0,2">
                                                         <Run Text="{local:T control.dpi}"/><Run Text=" "/><Run Text="{Binding Dpi}" FontWeight="SemiBold"/>
                                                     </TextBlock>
+                                                    <!-- O DPI muda só na hora: o mouse volta ao dele quando é desligado -->
+                                                    <TextBlock Text="{local:T card.dpiNote}" FontSize="10" Foreground="#6A6A75"
+                                                               TextAlignment="Center" TextWrapping="Wrap" Margin="0,0,0,6"/>
                                                     <WrapPanel HorizontalAlignment="Center">
                                                         <ItemsControl ItemsSource="{Binding DpiChoices}">
                                                             <ItemsControl.ItemsPanel>

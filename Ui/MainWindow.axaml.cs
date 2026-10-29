@@ -19,6 +19,9 @@ public partial class MainWindow : Window
     // Se fomos nós que abrimos o OpenRGB, fechamos ele junto com o app (nada fica rodando).
     private Process? _openRgbWeStarted;
 
+    // Busca de fotos em andamento. Um novo Atualizar cancela a anterior.
+    private CancellationTokenSource? _photoSearch;
+
     // Largura da faixa nas bordas da janela que serve para mudar o tamanho.
     private const double ResizeBorder = 8;
 
@@ -53,13 +56,17 @@ public partial class MainWindow : Window
             {
                 d.OriginalName = d.Name;
                 d.IsHidden = _hidden.Contains(d.Key);
-                d.Photo = DevicePhotos.Find(d);
+                d.Photo = DeviceImages.FromCache(d);
                 d.SavedColor = UserSettings.Current.Find(d)?.Color;
                 if (_names.TryGetValue(d.Key, out var custom))
                     d.Name = custom;
                 DriverCatalog.Describe(d);
             }
             ShowDevices();
+
+            _photoSearch?.Cancel();
+            _photoSearch = new CancellationTokenSource();
+            _ = SearchMissingPhotosAsync(_devices, _photoSearch.Token);
 
             var hiddenCount = _devices.Count(d => d.IsHidden);
             StatusText.Text = Lang.T("status.count", _devices.Count - hiddenCount)
@@ -91,6 +98,21 @@ public partial class MainWindow : Window
         finally
         {
             RefreshButton.IsEnabled = true;
+        }
+    }
+
+    // Fotos que não estão no cache: uma busca por aparelho, uma de cada vez, sem travar a tela.
+    // Enquanto isso o cartão mostra o ícone; quando a foto chega, só aquele cartão muda.
+    // Se não achar, fica o ícone (sem aviso) e tenta de novo no próximo Atualizar.
+    private static async Task SearchMissingPhotosAsync(List<DeviceInfo> devices, CancellationToken cancel)
+    {
+        foreach (var device in devices.Where(d => d.Photo == null && !d.IsHidden).ToList())
+        {
+            if (cancel.IsCancellationRequested)
+                return;
+            var photo = await Task.Run(() => DeviceImages.SearchAsync(device, cancel));
+            if (photo != null && !cancel.IsCancellationRequested)
+                device.Photo = photo;
         }
     }
 

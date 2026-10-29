@@ -195,6 +195,7 @@ public static class DeviceScanner
     private static IEnumerable<DeviceInfo> ToDevices(PartGroup group)
     {
         var (parts, status, battery) = group;
+        var isBluetooth = parts.Any(p => p.Class == PartClass.Bluetooth);
 
         // Áudio: cada saída/entrada vira uma linha (ex.: "Alto-falantes (...)", "Microfone (...)").
         foreach (var audio in parts.Where(p => p.Class == PartClass.Audio))
@@ -207,6 +208,7 @@ public static class DeviceScanner
                 Status = status,
                 Battery = battery,
                 SortOrder = 5,
+                IsBluetooth = isBluetooth,
             };
         }
 
@@ -224,6 +226,7 @@ public static class DeviceScanner
             Status = status,
             Battery = battery,
             SortOrder = order,
+            IsBluetooth = isBluetooth,
         };
         device.HardwareIds.AddRange(others.Select(p => p.HardwareId).OfType<string>().Distinct());
         yield return device;

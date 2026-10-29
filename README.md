@@ -134,14 +134,14 @@ git push --tags
 Em alguns minutos aparece a Release com o `.exe` do Windows, o `.tar.gz` do Linux, os hashes e as
 notas geradas a partir dos commits. Para acompanhar, veja a aba *Actions* do repositório.
 
-## Adicionar a foto de um aparelho
+## Fotos dos aparelhos
 
-1. Coloque um PNG em `Assets/Devices/`.
-2. Adicione uma linha em `Assets/Devices/devices.json` ligando o código USB do aparelho ao arquivo:
-   ```json
-   "VID_046D&PID_4093": "logitech-pro-x-superlight.png"
-   ```
-3. Compile de novo. Aparelhos sem foto mostram o ícone do tipo no lugar.
+As fotos são automáticas: ninguém precisa adicionar imagem. Quando um aparelho não tem foto salva, o app
+procura uma na internet em segundo plano (Bing e, se não der, DuckDuckGo) e guarda só no seu PC, em
+`%LocalAppData%\Perialls\imagens` (no Linux, `~/.local/share/Perialls/imagens`). Para isso, **o nome do
+aparelho (marca e modelo) é enviado ao buscador**. A busca só aceita imagens com fundo transparente e
+formato quadrado; se nada servir ou estiver sem internet, o cartão mostra o ícone do tipo e o app tenta
+de novo no próximo Atualizar.
 
 O código USB (VID/PID) aparece no Gerenciador de Dispositivos: *Propriedades* → *Detalhes* →
 *IDs de hardware*. No Linux, no comando `lsusb` (ex.: `ID 046d:4093` vira `VID_046D&PID_4093`).

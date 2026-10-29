@@ -14,6 +14,7 @@
   "card.renameTip": "Enter saves · Esc cancels · empty restores the original name",
   "card.battery": "Battery",
   "card.customColorTip": "Custom color (e.g. #FF8800) + Enter",
+  "card.dpiNote": "Lasts until the mouse is turned off.",
   "card.customDpiTip": "Custom DPI + Enter",
   "card.effectTip": "Lighting effect",
 

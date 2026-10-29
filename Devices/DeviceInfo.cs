@@ -1,10 +1,14 @@
+using System.ComponentModel;
 using Avalonia.Media;
 
 namespace Perialls;
 
 // Uma linha da lista: um aparelho físico e o que sabemos sobre ele.
-public sealed class DeviceInfo
+// Só a foto avisa a tela quando muda: ela chega depois, em segundo plano (veja DeviceImages).
+public sealed class DeviceInfo : INotifyPropertyChanged
 {
+    public event PropertyChangedEventHandler? PropertyChanged;
+
     public string Name { get; set; } = "";
     public string Kind { get; set; } = "";
     public string Status { get; set; } = "";
@@ -46,9 +50,22 @@ public sealed class DeviceInfo
     public int LogitechProductId { get; set; }
     public byte LogitechIndex { get; set; }
 
-    // Foto do aparelho (de Assets/Devices). Se for null, a tela mostra o ícone grande.
-    public IImage? Photo { get; set; }
+    // Foto do aparelho, achada na internet e guardada no cache (DeviceImages). Sem foto, a tela mostra o ícone grande.
+    public IImage? Photo
+    {
+        get => _photo;
+        set
+        {
+            _photo = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Photo)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HasPhoto)));
+        }
+    }
+    private IImage? _photo;
     public bool HasPhoto => Photo != null;
+
+    // Aparelho Bluetooth (o nome dele é o do produto, mesmo sem código USB).
+    public bool IsBluetooth { get; set; }
 
     // Nome que o aparelho/sistema informa, antes de você renomear. Usado para voltar ao original.
     public string OriginalName { get; set; } = "";

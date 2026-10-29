@@ -15,6 +15,9 @@ public sealed class Driver
     // Para quais aparelhos ele vale ("VID_3151&PID_502D"). Nada é enviado para outros.
     public HashSet<string> HardwareIds { get; private init; } = [];
 
+    // O modelo de cada aparelho, como o driver escreve (ex.: "FUN60 PRO"). Usado para achar a foto.
+    public Dictionary<string, string> Models { get; private init; } = [];
+
     // A interface HID que recebe os comandos.
     public int UsagePage { get; private init; }
     public int? Usage { get; private init; }
@@ -108,13 +111,17 @@ public sealed class Driver
         Require(spec.Devices.Count is > 0 and <= 20, Lang.T("driver.devices"));
         var vendors = new HashSet<int>();
         var ids = new HashSet<string>();
+        var models = new Dictionary<string, string>();
         foreach (var d in spec.Devices)
         {
             var vid = ParseNumber(d.Vid, 0xFFFF, "vid");
             var pid = ParseNumber(d.Pid, 0xFFFF, "pid");
             Require(!BuiltInVendors.Contains(vid), Lang.T("driver.builtInVendor", vid.ToString("X4")));
             vendors.Add(vid);
-            ids.Add(DeviceScanner.HardwareId(vid.ToString("X4"), pid.ToString("X4")));
+            var id = DeviceScanner.HardwareId(vid.ToString("X4"), pid.ToString("X4"));
+            ids.Add(id);
+            if (d.Model?.Trim() is { Length: > 0 and <= 60 } model)
+                models[id] = model;
         }
 
         // Interface
@@ -186,6 +193,7 @@ public sealed class Driver
             Name = spec.Name.Trim(),
             IsLocal = isLocal,
             HardwareIds = ids,
+            Models = models,
             UsagePage = ParseNumber(iface.UsagePage, 0xFFFF, "usagePage"),
             Usage = iface.Usage == null ? null : ParseNumber(iface.Usage, 0xFFFF, "usage"),
             ReportId = (byte)iface.ReportId,
