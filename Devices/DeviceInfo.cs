@@ -77,6 +77,9 @@ public sealed class DeviceInfo
     public IEnumerable<Choice> SpeedChoices => Levels.Select(l => new Choice(this, l, l == KeyboardLighting?.Speed));
     public IEnumerable<Choice> ReportRateChoices => MonsGeekKeyboard.ReportRates.Select(hz => new Choice(this, hz, hz == ReportRateHz));
 
+    // As mesmas cores no seletor de "Sincronizar RGB" (sem aparelho: vale para todos).
+    public static IEnumerable<ColorChoice> SyncSwatches => SwatchColors.Select(hex => new ColorChoice(null, hex));
+
     // Cores rápidas para RGB. A última (preto) desliga os LEDs.
     private static readonly string[] SwatchColors =
         ["#FF0000", "#FF6A00", "#FFD000", "#00FF40", "#00E5FF", "#0040FF", "#8A00FF", "#FF00A0", "#FFFFFF", "#000000"];
@@ -88,8 +91,8 @@ public sealed class DeviceInfo
 // Um botão de valor (DPI, brilho, velocidade, Hz).
 public sealed record Choice(DeviceInfo Device, int Value, bool IsCurrent);
 
-// Um botão de cor.
-public sealed record ColorChoice(DeviceInfo Device, string Hex)
+// Um botão de cor. Sem aparelho (Device null) é o de "Sincronizar RGB".
+public sealed record ColorChoice(DeviceInfo? Device, string Hex)
 {
     public IBrush Brush { get; } = SolidColorBrush.Parse(Hex);
 }

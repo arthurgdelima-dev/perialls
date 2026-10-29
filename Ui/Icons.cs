@@ -19,6 +19,7 @@ public static class Icons
     public static readonly Geometry Minimize = Parse("M7,12 H17");
     public static readonly Geometry Download = Parse("M12,4 V15 M7.5,10.5 L12,15 L16.5,10.5 M5,19.5 H19");
     public static readonly Geometry Plus = Parse("M12,6 V18 M6,12 H18");
+    public static readonly Geometry Sync = Parse("M12,3 C12,3 5.5,10 5.5,14.5 A6.5,6.5 0 0 0 18.5,14.5 C18.5,10 12,3 12,3 Z M9,15 A3,3 0 0 0 12,18");
     public static readonly Geometry Check = Parse("M6,12.5 L10,16.5 L18,8");
 
     // O ícone escolhido conforme o tipo do aparelho (propriedade Icon do DeviceInfo).

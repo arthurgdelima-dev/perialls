@@ -213,8 +213,17 @@ public partial class MainWindow : Window
 
     private async void Swatch_Click(object? sender, RoutedEventArgs e)
     {
-        if ((sender as Control)?.DataContext is ColorChoice choice)
+        if ((sender as Control)?.DataContext is not ColorChoice choice)
+            return;
+        if (choice.Device == null)
+        {
+            SyncButton.Flyout?.Hide();
+            await SyncColorAsync(choice.Hex);
+        }
+        else
+        {
             await ApplyColorAsync(choice.Device, choice.Hex);
+        }
     }
 
     private async void CustomColor_KeyDown(object? sender, KeyEventArgs e)
@@ -225,53 +234,111 @@ public partial class MainWindow : Window
 
     private async Task ApplyColorAsync(DeviceInfo device, string hex)
     {
-        hex = hex.Trim().TrimStart('#');
-        if (hex.Length != 6 || !int.TryParse(hex, NumberStyles.HexNumber, null, out var rgb))
+        if (ParseColor(hex) is not { } color)
+            return;
+        var (r, g, b) = color;
+
+        var error = await SetColorAsync(device, r, g, b);
+        ShowDevices();
+        StatusText.Text = error != null ? $"Não deu para mudar a cor de {device.Name}: {error}"
+            : (r, g, b) == (0, 0, 0) ? $"LEDs apagados: {device.Name}"
+            : $"Cor {ColorText(r, g, b)} aplicada: {device.Name}";
+    }
+
+    // Sincronizar RGB: a mesma cor em todos os aparelhos com RGB (OpenRGB, drivers JSON e o teclado Akko).
+    // Todos recebem ao mesmo tempo; se um falhar, os outros seguem e o rodapé diz qual falhou.
+    private async void SyncCustomColor_KeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter && sender is TextBox box)
         {
-            StatusText.Text = "Cor inválida. Use o formato #RRGGBB, por exemplo #FF8800.";
+            SyncButton.Flyout?.Hide();
+            await SyncColorAsync(box.Text ?? "");
+        }
+    }
+
+    private async Task SyncColorAsync(string hex)
+    {
+        if (ParseColor(hex) is not { } color)
+            return;
+        var (r, g, b) = color;
+
+        var targets = _devices.Where(d => d.HasRgb).ToList();
+        if (targets.Count == 0)
+        {
+            StatusText.Text = "Nenhum aparelho com RGB para sincronizar.";
             return;
         }
 
-        byte r = (byte)(rgb >> 16), g = (byte)(rgb >> 8), b = (byte)rgb;
+        SyncButton.IsEnabled = false;
+        StatusText.Text = $"Aplicando {ColorText(r, g, b)} em {targets.Count} aparelhos...";
+        var errors = await Task.WhenAll(targets.Select(d => SetColorAsync(d, r, g, b)));
+        SyncButton.IsEnabled = true;
+        ShowDevices();
 
-        if (device.KeyboardLighting is { } current)
-        {
-            // Preto apaga (brilho 0). Outra cor: cor única, e volta o brilho se estava apagado.
-            // Efeitos que não usam cor (Neon) trocam para o estático.
-            var effect = MonsGeekKeyboard.Effects.FirstOrDefault(x => x.Id == current.Effect);
-            var lighting = rgb == 0
-                ? current with { Brightness = 0 }
-                : current with
-                {
-                    R = r, G = g, B = b,
-                    Multicolor = false,
-                    Brightness = current.Brightness == 0 ? (byte)4 : current.Brightness,
-                    Effect = effect is { UsesColor: false } ? (byte)1 : current.Effect,
-                };
-            await ApplyKeyboardLightingAsync(device, lighting,
-                rgb == 0 ? "LEDs apagados" : $"Cor #{hex.ToUpperInvariant()} aplicada");
-            return;
-        }
+        var failed = targets.Zip(errors).Where(x => x.Second != null).Select(x => $"{x.First.Name} ({x.Second})").ToList();
+        StatusText.Text = failed.Count == 0
+            ? $"Cor {ColorText(r, g, b)} aplicada em {targets.Count} aparelhos."
+            : $"Cor {ColorText(r, g, b)} aplicada em {targets.Count - failed.Count} de {targets.Count} aparelhos. Falhou: {string.Join(", ", failed)}";
+    }
 
-        if (device.Driver?.Controls.FirstOrDefault(c => c.Kind == DriverControlKind.Color) is { } colorControl)
-        {
-            await ApplyDriverAsync(device, colorControl, new Dictionary<string, int> { ["r"] = r, ["g"] = g, ["b"] = b },
-                $"Cor #{hex.ToUpperInvariant()} aplicada");
-            return;
-        }
-
+    // Pinta um aparelho pelo caminho que ele tiver. Devolve null se deu certo, ou o motivo da falha.
+    private static async Task<string?> SetColorAsync(DeviceInfo device, byte r, byte g, byte b)
+    {
         try
         {
-            await Task.Run(() => OpenRgb.SetColor(device.RgbLocation!, r, g, b));
-            StatusText.Text = rgb == 0
-                ? $"LEDs desligados: {device.Name}"
-                : $"Cor #{hex.ToUpperInvariant()} aplicada: {device.Name}";
+            if (device.KeyboardLighting is { } current)
+            {
+                // Preto apaga (brilho 0). Outra cor: cor única, e volta o brilho se estava apagado.
+                // Efeitos que não usam cor (Neon) trocam para o estático.
+                var effect = MonsGeekKeyboard.Effects.FirstOrDefault(x => x.Id == current.Effect);
+                var lighting = (r, g, b) == (0, 0, 0)
+                    ? current with { Brightness = 0 }
+                    : current with
+                    {
+                        R = r, G = g, B = b,
+                        Multicolor = false,
+                        Brightness = current.Brightness == 0 ? (byte)4 : current.Brightness,
+                        Effect = effect is { UsesColor: false } ? (byte)1 : current.Effect,
+                    };
+                await Task.Run(() => MonsGeekKeyboard.SetLighting(lighting));
+                device.KeyboardLighting = lighting;
+            }
+            else if (device.Driver?.Controls.FirstOrDefault(c => c.Kind == DriverControlKind.Color) is { } colorControl)
+            {
+                await SendDriverAsync(device, colorControl, new Dictionary<string, int> { ["r"] = r, ["g"] = g, ["b"] = b });
+            }
+            else if (device.RgbLocation != null)
+            {
+                await Task.Run(() => OpenRgb.SetColor(device.RgbLocation, r, g, b));
+            }
+            else
+            {
+                return "não tem RGB";
+            }
+            return null;
+        }
+        catch (DriverException ex)
+        {
+            return "nada foi enviado, " + ex.Message;
         }
         catch (Exception ex)
         {
-            StatusText.Text = "Não deu para mudar a cor: " + ex.Message;
+            return ex.Message;
         }
     }
+
+    // "#FF8800" → (255, 136, 0). Se o texto não for uma cor, avisa no rodapé e devolve null.
+    private (byte R, byte G, byte B)? ParseColor(string hex)
+    {
+        hex = hex.Trim().TrimStart('#');
+        if (hex.Length == 6 && int.TryParse(hex, NumberStyles.HexNumber, null, out var rgb))
+            return ((byte)(rgb >> 16), (byte)(rgb >> 8), (byte)rgb);
+
+        StatusText.Text = "Cor inválida. Use o formato #RRGGBB, por exemplo #FF8800.";
+        return null;
+    }
+
+    private static string ColorText(byte r, byte g, byte b) => $"#{r:X2}{g:X2}{b:X2}";
 
     private async void DriverChoice_Click(object? sender, RoutedEventArgs e)
     {
@@ -286,21 +353,12 @@ public partial class MainWindow : Window
             await ApplyDriverAsync(choice.Device, choice.Control, choice.Sets, $"{choice.Control.Label} {choice.Label} aplicado");
     }
 
-    // Envia um comando do driver JSON. Os valores só mudam na tela se o envio deu certo.
+    // Envia um comando do driver JSON e mostra o resultado no rodapé.
     private async Task ApplyDriverAsync(DeviceInfo device, DriverControl control, IReadOnlyDictionary<string, int> sets, string message)
     {
-        if (device.Driver is not { } driver)
-            return;
-
-        var values = new Dictionary<string, int>(device.DriverValues);
-        foreach (var (key, value) in sets)
-            values[key] = value;
-
         try
         {
-            await Task.Run(() => DriverRunner.Send(driver, control, values, device));
-            foreach (var (key, value) in sets)
-                device.DriverValues[key] = value;
+            await SendDriverAsync(device, control, sets);
             ShowDevices();
             StatusText.Text = $"{message}: {device.Name}";
         }
@@ -312,6 +370,21 @@ public partial class MainWindow : Window
         {
             StatusText.Text = "Não deu para falar com o aparelho: " + ex.Message;
         }
+    }
+
+    // Os valores só mudam na tela se o envio deu certo.
+    private static async Task SendDriverAsync(DeviceInfo device, DriverControl control, IReadOnlyDictionary<string, int> sets)
+    {
+        if (device.Driver is not { } driver)
+            throw new DriverException("o aparelho não tem driver");
+
+        var values = new Dictionary<string, int>(device.DriverValues);
+        foreach (var (key, value) in sets)
+            values[key] = value;
+
+        await Task.Run(() => DriverRunner.Send(driver, control, values, device));
+        foreach (var (key, value) in sets)
+            device.DriverValues[key] = value;
     }
 
     private async void DpiPreset_Click(object? sender, RoutedEventArgs e)

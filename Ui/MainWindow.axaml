@@ -120,6 +120,43 @@
                             <Path Classes="line" Data="{x:Static local:Icons.Eye}"/>
                         </Viewbox>
                     </ToggleButton>
+                    <!-- Sincronizar RGB: a mesma cor em todos os aparelhos -->
+                    <Button x:Name="SyncButton" ToolTip.Tip="Sincronizar RGB: a mesma cor em todos os aparelhos"
+                            Classes="ghost" Margin="0,0,0,8">
+                        <Viewbox Width="20" Height="20">
+                            <Path Classes="line" Data="{x:Static local:Icons.Sync}"/>
+                        </Viewbox>
+                        <Button.Flyout>
+                            <Flyout Placement="RightEdgeAlignedTop">
+                                <StackPanel Width="150">
+                                    <TextBlock Classes="value" Margin="0,0,0,8" Text="Cor para todos"/>
+                                    <ItemsControl ItemsSource="{x:Static local:DeviceInfo.SyncSwatches}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <WrapPanel/>
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Button Click="Swatch_Click" Cursor="Hand" Margin="0,0,5,5"
+                                                        ToolTip.Tip="{Binding Hex}">
+                                                    <Button.Template>
+                                                        <ControlTemplate>
+                                                            <Ellipse Width="16" Height="16" Fill="{Binding Brush}"
+                                                                     Stroke="#55555F" StrokeThickness="1"/>
+                                                        </ControlTemplate>
+                                                    </Button.Template>
+                                                </Button>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <TextBox Width="64" Text="#" Classes="small" HorizontalAlignment="Left"
+                                             ToolTip.Tip="Cor personalizada (ex.: #FF8800) + Enter"
+                                             KeyDown="SyncCustomColor_KeyDown"/>
+                                </StackPanel>
+                            </Flyout>
+                        </Button.Flyout>
+                    </Button>
                     <Button x:Name="StartOpenRgbButton" Click="StartOpenRgb_Click" IsVisible="False"
                             ToolTip.Tip="Abrir o OpenRGB (para controlar o RGB)" Classes="ghost">
                         <Viewbox Width="20" Height="20">
