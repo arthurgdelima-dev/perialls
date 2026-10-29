@@ -1,0 +1,13 @@
+# Deixa o Perialls (e outros apps da sessão) falar com os aparelhos HID que ele controla.
+# Por padrão só o root abre /dev/hidraw*. "uaccess" libera para quem está usando o PC no momento.
+#
+# Instalar:
+#   sudo cp linux/70-perialls.rules /etc/udev/rules.d/
+#   sudo udevadm control --reload && sudo udevadm trigger
+# Depois, tire e ligue o aparelho de novo (ou reinicie).
+
+# Logitech (HID++: bateria e DPI), por USB ou Bluetooth
+KERNEL=="hidraw*", KERNELS=="*:046D:*", TAG+="uaccess"
+
+# Akko/MonsGeek (iluminação e Hz)
+KERNEL=="hidraw*", KERNELS=="*:3151:*", TAG+="uaccess"

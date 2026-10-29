@@ -1,8 +1,10 @@
 ﻿using System.Diagnostics;
 using System.Globalization;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Input;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.Threading;
 
 namespace Perialls;
 
@@ -15,14 +17,17 @@ public partial class MainWindow : Window
     // Se fomos nós que abrimos o OpenRGB, fechamos ele junto com o app (nada fica rodando).
     private Process? _openRgbWeStarted;
 
+    // Largura da faixa nas bordas da janela que serve para mudar o tamanho.
+    private const double ResizeBorder = 8;
+
     public MainWindow()
     {
         InitializeComponent();
-        Loaded += async (_, _) => await RefreshAsync();
+        Opened += async (_, _) => await RefreshAsync();
         Closed += (_, _) => StopOpenRgbIfWeStartedIt();
     }
 
-    private async void Refresh_Click(object sender, RoutedEventArgs e) => await RefreshAsync();
+    private async void Refresh_Click(object? sender, RoutedEventArgs e) => await RefreshAsync();
 
     // Lê os aparelhos uma vez. Não há nada rodando sozinho: só atualiza ao abrir ou ao clicar.
     private async Task RefreshAsync()
@@ -31,14 +36,14 @@ public partial class MainWindow : Window
         StatusText.Text = "Procurando aparelhos...";
         try
         {
-            // A busca roda fora da tela para a janela não "congelar" enquanto o Windows responde.
+            // A busca roda fora da tela para a janela não "congelar" enquanto o sistema responde.
             var result = await Task.Run(DeviceScanner.Scan);
             _devices = result.Devices;
             foreach (var d in _devices)
             {
+                d.OriginalName = d.Name;
                 d.IsHidden = _hidden.Contains(d.Key);
                 d.Photo = DevicePhotos.Find(d);
-                d.OriginalName = d.Name;
                 if (_names.TryGetValue(d.Key, out var custom))
                     d.Name = custom;
             }
@@ -49,14 +54,17 @@ public partial class MainWindow : Window
                 + (hiddenCount > 0 ? $" ({hiddenCount} ocultos)" : "")
                 + $" · atualizado às {DateTime.Now:HH:mm:ss}";
 
+            if (result.HidAccessDenied)
+                StatusText.Text += "\nSem permissão para falar com Logitech/Akko: instale a regra do udev (veja o README).";
+
             if (!result.OpenRgbRunning)
             {
                 StatusText.Text += "\nRGB indisponível: abra o OpenRGB com o SDK Server ligado.";
-                StartOpenRgbButton.Visibility = OpenRgb.FindExe() != null ? Visibility.Visible : Visibility.Collapsed;
+                StartOpenRgbButton.IsVisible = OpenRgb.FindExe() != null;
             }
             else
             {
-                StartOpenRgbButton.Visibility = Visibility.Collapsed;
+                StartOpenRgbButton.IsVisible = false;
             }
         }
         catch (Exception ex)
@@ -76,11 +84,11 @@ public partial class MainWindow : Window
         DeviceList.ItemsSource = _devices.Where(d => showHidden || !d.IsHidden).ToList();
     }
 
-    private void ShowHidden_Changed(object sender, RoutedEventArgs e) => ShowDevices();
+    private void ShowHidden_Changed(object? sender, RoutedEventArgs e) => ShowDevices();
 
-    private void ToggleHidden_Click(object sender, RoutedEventArgs e)
+    private void ToggleHidden_Click(object? sender, RoutedEventArgs e)
     {
-        if ((sender as FrameworkElement)?.DataContext is not DeviceInfo device)
+        if ((sender as Control)?.DataContext is not DeviceInfo device)
             return;
 
         device.IsHidden = !device.IsHidden;
@@ -94,34 +102,35 @@ public partial class MainWindow : Window
     }
 
     // Dois cliques no nome abrem a caixa para renomear.
-    private void DeviceName_MouseDown(object sender, MouseButtonEventArgs e)
+    private void DeviceName_DoubleTapped(object? sender, TappedEventArgs e)
     {
-        if (e.ClickCount != 2 || (sender as FrameworkElement)?.DataContext is not DeviceInfo device)
+        if ((sender as Control)?.DataContext is not DeviceInfo device)
             return;
 
-        e.Handled = true; // não deixa o clique virar "arrastar a janela"
         device.IsRenaming = true;
         ShowDevices();
     }
 
-    private void RenameBox_Loaded(object sender, RoutedEventArgs e)
+    private void RenameBox_Attached(object? sender, VisualTreeAttachmentEventArgs e)
     {
+        // Espera a caixa aparecer na tela antes de pôr o cursor nela.
         if (sender is TextBox { DataContext: DeviceInfo { IsRenaming: true } } box)
-        {
-            box.Focus();
-            box.SelectAll();
-        }
+            Dispatcher.UIThread.Post(() =>
+            {
+                box.Focus();
+                box.SelectAll();
+            }, DispatcherPriority.Loaded);
     }
 
     // Enter salva, Esc cancela. Nome vazio volta para o nome original.
-    private void RenameBox_KeyDown(object sender, KeyEventArgs e)
+    private void RenameBox_KeyDown(object? sender, KeyEventArgs e)
     {
         if (sender is not TextBox { DataContext: DeviceInfo device } box || e.Key is not (Key.Enter or Key.Escape))
             return;
 
         if (e.Key == Key.Enter)
         {
-            var name = box.Text.Trim();
+            var name = (box.Text ?? "").Trim();
             if (name == "" || name == device.OriginalName)
             {
                 _names.Remove(device.Key);
@@ -135,11 +144,12 @@ public partial class MainWindow : Window
             DeviceNames.Save(_names);
         }
 
+        e.Handled = true;
         device.IsRenaming = false;
         ShowDevices();
     }
 
-    private void RenameBox_LostFocus(object sender, RoutedEventArgs e)
+    private void RenameBox_LostFocus(object? sender, RoutedEventArgs e)
     {
         if (sender is TextBox { DataContext: DeviceInfo { IsRenaming: true } device })
         {
@@ -148,16 +158,16 @@ public partial class MainWindow : Window
         }
     }
 
-    private async void Swatch_Click(object sender, RoutedEventArgs e)
+    private async void Swatch_Click(object? sender, RoutedEventArgs e)
     {
-        if (sender is Button { Tag: DeviceInfo device, DataContext: string hex })
-            await ApplyColorAsync(device, hex);
+        if ((sender as Control)?.DataContext is ColorChoice choice)
+            await ApplyColorAsync(choice.Device, choice.Hex);
     }
 
-    private async void CustomColor_KeyDown(object sender, KeyEventArgs e)
+    private async void CustomColor_KeyDown(object? sender, KeyEventArgs e)
     {
         if (e.Key == Key.Enter && sender is TextBox { DataContext: DeviceInfo device } box)
-            await ApplyColorAsync(device, box.Text);
+            await ApplyColorAsync(device, box.Text ?? "");
     }
 
     private async Task ApplyColorAsync(DeviceInfo device, string hex)
@@ -203,18 +213,18 @@ public partial class MainWindow : Window
         }
     }
 
-    private async void DpiPreset_Click(object sender, RoutedEventArgs e)
+    private async void DpiPreset_Click(object? sender, RoutedEventArgs e)
     {
-        if (sender is Button { Tag: DeviceInfo device, DataContext: int dpi })
-            await ApplyDpiAsync(device, dpi);
+        if ((sender as Control)?.DataContext is Choice choice)
+            await ApplyDpiAsync(choice.Device, choice.Value);
     }
 
-    private async void DpiCustom_KeyDown(object sender, KeyEventArgs e)
+    private async void DpiCustom_KeyDown(object? sender, KeyEventArgs e)
     {
         if (e.Key != Key.Enter || sender is not TextBox { DataContext: DeviceInfo device } box)
             return;
 
-        if (int.TryParse(box.Text.Trim(), out var dpi) && dpi >= 50 && dpi <= 50000)
+        if (int.TryParse((box.Text ?? "").Trim(), out var dpi) && dpi >= 50 && dpi <= 50000)
             await ApplyDpiAsync(device, dpi);
         else
             StatusText.Text = "DPI inválido. Digite só o número, por exemplo 1600.";
@@ -235,7 +245,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private async void KeyboardEffect_Changed(object sender, SelectionChangedEventArgs e)
+    private async void KeyboardEffect_Changed(object? sender, SelectionChangedEventArgs e)
     {
         // Sem item removido = é só a tela mostrando o efeito atual, não um clique.
         if (e.RemovedItems.Count == 0 || sender is not ComboBox { DataContext: DeviceInfo device, SelectedItem: MonsGeekKeyboard.Effect effect })
@@ -245,16 +255,16 @@ public partial class MainWindow : Window
                 $"Efeito {effect.Name} aplicado");
     }
 
-    private async void KeyboardBrightness_Click(object sender, RoutedEventArgs e)
+    private async void KeyboardBrightness_Click(object? sender, RoutedEventArgs e)
     {
-        if (sender is Button { Tag: DeviceInfo { KeyboardLighting: { } current } device, DataContext: int level })
-            await ApplyKeyboardLightingAsync(device, current with { Brightness = (byte)level }, $"Brilho {level} aplicado");
+        if ((sender as Control)?.DataContext is Choice { Device: { KeyboardLighting: { } current } device } choice)
+            await ApplyKeyboardLightingAsync(device, current with { Brightness = (byte)choice.Value }, $"Brilho {choice.Value} aplicado");
     }
 
-    private async void KeyboardSpeed_Click(object sender, RoutedEventArgs e)
+    private async void KeyboardSpeed_Click(object? sender, RoutedEventArgs e)
     {
-        if (sender is Button { Tag: DeviceInfo { KeyboardLighting: { } current } device, DataContext: int level })
-            await ApplyKeyboardLightingAsync(device, current with { Speed = (byte)level }, $"Velocidade {level} aplicada");
+        if ((sender as Control)?.DataContext is Choice { Device: { KeyboardLighting: { } current } device } choice)
+            await ApplyKeyboardLightingAsync(device, current with { Speed = (byte)choice.Value }, $"Velocidade {choice.Value} aplicada");
     }
 
     private async Task ApplyKeyboardLightingAsync(DeviceInfo device, MonsGeekKeyboard.Lighting lighting, string message)
@@ -272,9 +282,9 @@ public partial class MainWindow : Window
         }
     }
 
-    private async void ReportRate_Click(object sender, RoutedEventArgs e)
+    private async void ReportRate_Click(object? sender, RoutedEventArgs e)
     {
-        if (sender is not Button { Tag: DeviceInfo device, DataContext: int hz })
+        if ((sender as Control)?.DataContext is not Choice { Device: var device, Value: var hz })
             return;
         try
         {
@@ -290,25 +300,64 @@ public partial class MainWindow : Window
     }
 
     // Quantos cartões cabem por linha: cada um tem pelo menos 240 px de largura.
-    private void Cards_SizeChanged(object sender, SizeChangedEventArgs e)
+    private void Cards_SizeChanged(object? sender, SizeChangedEventArgs e)
     {
-        var width = CardsScroll.ActualWidth - SystemParameters.VerticalScrollBarWidth;
+        var width = CardsScroll.Bounds.Width - 18; // espaço da barra de rolagem
         var columns = Math.Max(1, (int)(width / 240));
         DeviceList.Tag = Math.Floor(width / columns);
     }
 
-    // Janela sem a barra do Windows: arrastar por qualquer área vazia, e botões próprios.
-    private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    // Janela sem a barra do sistema: pelas bordas muda o tamanho; por qualquer área vazia, arrasta.
+    // (O nome do aparelho fica de fora, para os dois cliques de renomear funcionarem.)
+    private void Frame_PointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (e.ButtonState == MouseButtonState.Pressed)
-            DragMove();
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+            return;
+
+        if (EdgeAt(e.GetPosition(this)) is { } edge)
+            BeginResizeDrag(edge, e);
+        else if (e.Source is not TextBlock { Classes: var classes } || !classes.Contains("name"))
+            BeginMoveDrag(e);
     }
 
-    private void Minimize_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
+    // Muda a setinha do mouse nas bordas, para mostrar que dá para redimensionar.
+    private void Frame_PointerMoved(object? sender, PointerEventArgs e)
+    {
+        Frame.Cursor = EdgeAt(e.GetPosition(this)) switch
+        {
+            WindowEdge.West or WindowEdge.East => new Cursor(StandardCursorType.SizeWestEast),
+            WindowEdge.North or WindowEdge.South => new Cursor(StandardCursorType.SizeNorthSouth),
+            WindowEdge.NorthWest => new Cursor(StandardCursorType.TopLeftCorner),
+            WindowEdge.NorthEast => new Cursor(StandardCursorType.TopRightCorner),
+            WindowEdge.SouthWest => new Cursor(StandardCursorType.BottomLeftCorner),
+            WindowEdge.SouthEast => new Cursor(StandardCursorType.BottomRightCorner),
+            _ => Cursor.Default,
+        };
+    }
 
-    private void Close_Click(object sender, RoutedEventArgs e) => Close();
+    private WindowEdge? EdgeAt(Point p)
+    {
+        bool left = p.X < ResizeBorder, right = p.X > Bounds.Width - ResizeBorder;
+        bool top = p.Y < ResizeBorder, bottom = p.Y > Bounds.Height - ResizeBorder;
+        return (top, bottom, left, right) switch
+        {
+            (true, _, true, _) => WindowEdge.NorthWest,
+            (true, _, _, true) => WindowEdge.NorthEast,
+            (_, true, true, _) => WindowEdge.SouthWest,
+            (_, true, _, true) => WindowEdge.SouthEast,
+            (true, _, _, _) => WindowEdge.North,
+            (_, true, _, _) => WindowEdge.South,
+            (_, _, true, _) => WindowEdge.West,
+            (_, _, _, true) => WindowEdge.East,
+            _ => null,
+        };
+    }
 
-    private async void StartOpenRgb_Click(object sender, RoutedEventArgs e)
+    private void Minimize_Click(object? sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
+
+    private void Close_Click(object? sender, RoutedEventArgs e) => Close();
+
+    private async void StartOpenRgb_Click(object? sender, RoutedEventArgs e)
     {
         var exe = OpenRgb.FindExe();
         if (exe == null)

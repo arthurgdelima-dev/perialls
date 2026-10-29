@@ -206,9 +206,12 @@ public static class LogitechHidpp
 
     // A conexão com o receptor: um canal "longo" (20 bytes) para mandar e receber,
     // e o "curto" (7 bytes) só para ouvir o aviso de "não tem aparelho nesse número" mais rápido.
+    // No Linux os dois chegam pelo mesmo /dev/hidraw, então pode não haver um canal curto separado.
     private sealed class Channel : IDisposable
     {
         private const byte SoftwareId = 0x0B; // identifica nossas mensagens nas respostas
+        private const byte ShortReport = 0x10;
+        private const byte LongReport = 0x11;
         private readonly HidStream _long;
         private readonly HidStream? _short;
         private readonly Dictionary<(byte, ushort), byte?> _features = [];
@@ -224,20 +227,30 @@ public static class LogitechHidpp
         public static Channel? Open(int productId)
         {
             var all = DeviceList.Local.GetHidDevices(LogitechVid, productId).ToList();
-            var longDevice = all.FirstOrDefault(d => OutputLength(d) == 20);
+            var longDevice = all.FirstOrDefault(d => Accepts(d, LongReport, 20));
             if (longDevice == null || !longDevice.TryOpen(out HidStream longStream))
                 return null;
 
-            var shortDevice = all.FirstOrDefault(d => OutputLength(d) == 7);
+            var shortDevice = all.FirstOrDefault(d => d != longDevice && Accepts(d, ShortReport, 7));
             HidStream? shortStream = null;
             shortDevice?.TryOpen(out shortStream);
             return new Channel(longStream, shortStream);
         }
 
-        private static int OutputLength(HidDevice d)
+        // No Windows cada tipo de mensagem é um aparelho separado, com o seu tamanho.
+        // No Linux um /dev/hidraw aceita vários tipos, então olhamos a lista de mensagens dele.
+        private static bool Accepts(HidDevice d, byte reportId, int length)
         {
-            try { return d.GetMaxOutputReportLength(); }
-            catch { return 0; }
+            try
+            {
+                return OperatingSystem.IsWindows()
+                    ? d.GetMaxOutputReportLength() == length
+                    : d.GetReportDescriptor().OutputReports.Any(r => r.ReportID == reportId);
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         // Pergunta ao aparelho em que número está um recurso (0 = não tem).
@@ -257,27 +270,32 @@ public static class LogitechHidpp
         public byte[]? Request(byte index, byte feature, byte function, params byte[] args)
         {
             var message = new byte[20];
-            message[0] = 0x11;
+            message[0] = LongReport;
             message[1] = index;
             message[2] = feature;
             message[3] = (byte)((function << 4) | SoftwareId);
             args.CopyTo(message, 4);
             _long.Write(message);
 
-            var buffer = new byte[20];
+            // O buffer tem o tamanho da maior mensagem que o aparelho manda (no Linux pode passar de 20).
+            var buffer = new byte[Math.Max(20, _long.Device.GetMaxInputReportLength())];
             var deadline = DateTime.UtcNow.AddMilliseconds(600);
             while (DateTime.UtcNow < deadline)
             {
                 if (TryRead(_long, buffer) && buffer[1] == index)
                 {
-                    if (buffer[2] == 0xFF && buffer[3] == feature) return null;      // erro HID++ 2.0
-                    if (buffer[2] == feature && buffer[3] == message[3]) return buffer[4..];
+                    if (buffer[0] == LongReport && buffer[2] == 0xFF && buffer[3] == feature) return null; // erro HID++ 2.0
+                    if (buffer[0] == LongReport && buffer[2] == feature && buffer[3] == message[3]) return buffer[4..20];
+                    if (IsNoDevice(buffer)) return null;
                 }
-                if (_short != null && TryRead(_short, buffer) && buffer[1] == index && buffer[2] == 0x8F)
-                    return null; // receptor avisou: nenhum aparelho nesse número (ou desligado)
+                if (_short != null && TryRead(_short, buffer) && buffer[1] == index && IsNoDevice(buffer))
+                    return null;
             }
             return null;
         }
+
+        // Mensagem curta do receptor avisando: nenhum aparelho nesse número (ou desligado).
+        private static bool IsNoDevice(byte[] buffer) => buffer[0] == ShortReport && buffer[2] == 0x8F;
 
         private static bool TryRead(HidStream stream, byte[] buffer)
         {

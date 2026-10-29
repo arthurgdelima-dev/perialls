@@ -78,8 +78,17 @@ public static class OpenRgb
     }
 
     // Procura o OpenRGB nos lugares onde o instalador costuma colocá-lo.
+    // No Linux ele é instalado pelo gerenciador de pacotes, como "openrgb", em alguma pasta do PATH.
     public static string? FindExe()
     {
+        if (!OperatingSystem.IsWindows())
+        {
+            return (Environment.GetEnvironmentVariable("PATH") ?? "")
+                .Split(':', StringSplitOptions.RemoveEmptyEntries)
+                .Select(f => Path.Combine(f, "openrgb"))
+                .FirstOrDefault(File.Exists);
+        }
+
         string[] folders =
         [
             Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
@@ -94,7 +103,7 @@ public static class OpenRgb
     // Abre o OpenRGB minimizado com o servidor ligado e espera ele terminar de detectar os aparelhos.
     public static async Task<Process?> StartAsync(string exe)
     {
-        var process = Process.Start(new ProcessStartInfo(exe, "--server --startminimized") { UseShellExecute = true });
+        var process = Process.Start(new ProcessStartInfo(exe, "--server --startminimized"));
 
         for (int i = 0; i < 30; i++)
         {

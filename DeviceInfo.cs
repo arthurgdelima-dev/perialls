@@ -1,4 +1,4 @@
-using System.Windows.Media;
+using Avalonia.Media;
 
 namespace Perialls;
 
@@ -9,6 +9,7 @@ public sealed class DeviceInfo
     public string Kind { get; set; } = "";
     public string Status { get; set; } = "";
     public string Battery { get; set; } = "—";
+    public bool HasBattery => Battery != "—";
 
     // Qual ícone mostrar: "keyboard", "mouse", "headset", "controller", "fan" ou "device".
     public string Icon { get; set; } = "device";
@@ -24,7 +25,8 @@ public sealed class DeviceInfo
     // Iluminação e Hz de teclados Akko/MonsGeek, pelo protocolo do driver oficial (sem OpenRGB).
     public MonsGeekKeyboard.Lighting? KeyboardLighting { get; set; }
     public bool HasKeyboardLighting => KeyboardLighting != null;
-    public byte? KeyboardEffect => KeyboardLighting?.Effect;
+    public MonsGeekKeyboard.Effect? KeyboardEffect =>
+        MonsGeekKeyboard.Effects.FirstOrDefault(e => e.Id == KeyboardLighting?.Effect);
     public int? ReportRateHz { get; set; }
 
     // DPI (só mouses Logitech com HID++, por enquanto). Para mudar, precisamos saber
@@ -36,9 +38,10 @@ public sealed class DeviceInfo
     public byte LogitechIndex { get; set; }
 
     // Foto do aparelho (de Assets/Devices). Se for null, a tela mostra o ícone grande.
-    public ImageSource? Photo { get; set; }
+    public IImage? Photo { get; set; }
+    public bool HasPhoto => Photo != null;
 
-    // Nome que o aparelho/Windows informa, antes de você renomear. Usado para voltar ao original.
+    // Nome que o aparelho/sistema informa, antes de você renomear. Usado para voltar ao original.
     public string OriginalName { get; set; } = "";
     public bool IsRenaming { get; set; }
 
@@ -46,9 +49,33 @@ public sealed class DeviceInfo
     public string HideLabel => IsHidden ? "Mostrar" : "Ocultar";
     public double Opacity => IsHidden ? 0.45 : 1.0;
 
-    // Identificação estável do aparelho, usada para lembrar se ele está oculto.
-    public string Key => HardwareIds.FirstOrDefault() ?? Name;
+    // Identificação estável do aparelho, usada para lembrar se ele está oculto e o nome que você deu.
+    // Sem código USB (ex.: áudio), usa o nome original: o nome atual muda quando você renomeia.
+    public string Key => HardwareIds.FirstOrDefault() ?? (OriginalName != "" ? OriginalName : Name);
 
     // Usado só para ordenar a lista (controles primeiro, áudio no fim).
     public int SortOrder { get; set; }
+
+    // Botões do cartão. Cada botão sabe de qual aparelho é e se é o valor atual (fica destacado).
+    public IEnumerable<ColorChoice> Swatches => SwatchColors.Select(hex => new ColorChoice(this, hex));
+    public IEnumerable<Choice> DpiChoices => DpiPresets.Select(d => new Choice(this, d, d == Dpi));
+    public IEnumerable<Choice> BrightnessChoices => Levels.Select(l => new Choice(this, l, l == KeyboardLighting?.Brightness));
+    public IEnumerable<Choice> SpeedChoices => Levels.Select(l => new Choice(this, l, l == KeyboardLighting?.Speed));
+    public IEnumerable<Choice> ReportRateChoices => MonsGeekKeyboard.ReportRates.Select(hz => new Choice(this, hz, hz == ReportRateHz));
+
+    // Cores rápidas para RGB. A última (preto) desliga os LEDs.
+    private static readonly string[] SwatchColors =
+        ["#FF0000", "#FF6A00", "#FFD000", "#00FF40", "#00E5FF", "#0040FF", "#8A00FF", "#FF00A0", "#FFFFFF", "#000000"];
+
+    // Níveis de brilho e velocidade dos teclados Akko/MonsGeek (0 a 4).
+    private static readonly int[] Levels = [0, 1, 2, 3, 4];
+}
+
+// Um botão de valor (DPI, brilho, velocidade, Hz).
+public sealed record Choice(DeviceInfo Device, int Value, bool IsCurrent);
+
+// Um botão de cor.
+public sealed record ColorChoice(DeviceInfo Device, string Hex)
+{
+    public IBrush Brush { get; } = SolidColorBrush.Parse(Hex);
 }

@@ -1,16 +1,12 @@
-using System.Management;
 using System.Text.RegularExpressions;
 
 namespace Perialls;
 
-// Descobre os periféricos conectados usando só o que o Windows já oferece.
+// Descobre os periféricos conectados usando só o que o sistema já oferece.
 // Nada aqui é específico do hardware de alguém: funciona para qualquer PC.
+// A lista básica vem de WindowsDevices ou LinuxDevices; o resto (RGB, Logitech, Akko) é igual nos dois.
 public static class DeviceScanner
 {
-    // Tipos (classes) de dispositivo do Windows que nos interessam.
-    private static readonly string[] Classes =
-        ["Mouse", "Keyboard", "HIDClass", "XnaComposite", "XboxComposite", "AudioEndpoint", "Bluetooth"];
-
     // Alguns fabricantes comuns, pelo código USB (VID). Só deixa o nome mais claro;
     // aparelhos de outras marcas aparecem normalmente, só sem o nome da marca na frente.
     // (A Microsoft fica de fora de propósito: muitos controles genéricos usam o código dela.)
@@ -31,75 +27,41 @@ public static class DeviceScanner
         ["258A"] = "Redragon",
     };
 
-    // Uma "parte" de um aparelho, como o Windows a enxerga.
-    private sealed record Part(string Id, string Name, string Class, int ErrorCode, string? BusName);
-
     public static ScanResult Scan()
     {
-        // 1) Pergunta ao Windows (via WMI) quais dispositivos dessas classes estão presentes.
-        var where = string.Join(" OR ", Classes.Select(c => $"PNPClass = '{c}'"));
-        using var searcher = new ManagementObjectSearcher(
-            $"SELECT DeviceID, Name, PNPClass, ConfigManagerErrorCode FROM Win32_PnPEntity WHERE {where}");
-
-        // 2) Junta as partes que pertencem ao mesmo aparelho físico (mesmo "contêiner").
+        // 1) Pergunta ao sistema quais aparelhos estão conectados, já com as partes de cada um juntas.
         //    Ex.: um teclado aparece como 5 ou 6 partes, mas é um aparelho só.
-        var groups = new Dictionary<string, List<Part>>();
-        foreach (ManagementObject obj in searcher.Get())
-        {
-            using (obj)
-            {
-                var id = obj["DeviceID"] as string ?? "";
-                var cls = obj["PNPClass"] as string ?? "";
-                var errorCode = Convert.ToInt32(obj["ConfigManagerErrorCode"] ?? 0);
+        var groups = OperatingSystem.IsWindows() ? WindowsDevices.List()
+            : OperatingSystem.IsLinux() ? LinuxDevices.List()
+            : [];
 
-                if (errorCode == 45) // 45 = "aparelho não está conectado"
-                    continue;
-                if (cls == "Bluetooth" && !IsBluetoothDevice(id)) // ignora o adaptador e serviços internos
-                    continue;
-
-                var container = DeviceProperties.GetGuid(id, DeviceProperties.ContainerId);
-                if (container == null || container == DeviceProperties.InternalContainer)
-                {
-                    // Coisas internas ou virtuais: só mostramos mouse, teclado e áudio (ex.: teclado PS/2).
-                    if (cls is "HIDClass" or "Bluetooth")
-                        continue;
-                }
-
-                var key = container == null || container == DeviceProperties.InternalContainer
-                    ? id
-                    : container.Value.ToString();
-
-                var part = new Part(id, obj["Name"] as string ?? "", cls, errorCode,
-                    DeviceProperties.GetString(id, DeviceProperties.BusReportedName));
-
-                if (!groups.TryGetValue(key, out var list))
-                    groups[key] = list = [];
-                list.Add(part);
-            }
-        }
-
-        // 3) Transforma cada grupo em linhas da lista.
+        // 2) Transforma cada grupo em linhas da lista.
         var devices = new List<DeviceInfo>();
-        foreach (var parts in groups.Values)
-            devices.AddRange(ToDevices(parts));
+        foreach (var group in groups)
+            devices.AddRange(ToDevices(group));
 
-        // 4) Controles XInput: bateria e conexão vêm de outra API.
-        AddXInputControllers(devices);
+        // 3) Controles XInput (só Windows): bateria e conexão vêm de outra API.
+        //    No Linux a bateria dos controles já vem junto com a lista.
+        if (OperatingSystem.IsWindows())
+            AddXInputControllers(devices);
 
-        // 5) RGB: tudo que o OpenRGB conhece ganha os controles de cor.
+        // 4) RGB: tudo que o OpenRGB conhece ganha os controles de cor.
         var openRgbRunning = AddOpenRgbDevices(devices);
 
-        // 6) Logitech: nome real, bateria e DPI pelo protocolo HID++.
+        // 5) Logitech: nome real, bateria e DPI pelo protocolo HID++.
         AddLogitechInfo(devices);
 
-        // 7) Akko/MonsGeek: iluminação e Hz pelo protocolo do driver oficial.
+        // 6) Akko/MonsGeek: iluminação e Hz pelo protocolo do driver oficial.
         AddMonsGeekInfo(devices);
 
+        // No Linux, sem a regra do udev o app não pode abrir os aparelhos HID (Logitech e Akko).
+        var hidBlocked = OperatingSystem.IsLinux() && LinuxDevices.HidAccessDenied();
+
         devices = devices.OrderBy(d => d.SortOrder).ThenBy(d => d.Name).ToList();
-        return new ScanResult(devices, openRgbRunning);
+        return new ScanResult(devices, openRgbRunning, hidBlocked);
     }
 
-    public sealed record ScanResult(List<DeviceInfo> Devices, bool OpenRgbRunning);
+    public sealed record ScanResult(List<DeviceInfo> Devices, bool OpenRgbRunning, bool HidAccessDenied);
 
     // Liga cada aparelho do OpenRGB à linha do mesmo aparelho USB (pelo código VID/PID).
     // Se não houver linha (ex.: memória RAM, placa de vídeo), cria uma nova.
@@ -226,31 +188,12 @@ public static class DeviceScanner
         row.ReportRateHz = state.ReportRateHz;
     }
 
-    private static IEnumerable<DeviceInfo> ToDevices(List<Part> parts)
+    private static IEnumerable<DeviceInfo> ToDevices(PartGroup group)
     {
-        parts.Sort((a, b) => string.CompareOrdinal(a.Id, b.Id));
-
-        var bluetooth = parts.FirstOrDefault(p => p.Class == "Bluetooth");
-        var hasProblem = parts.Any(p => p.ErrorCode != 0);
-
-        // Status de conexão.
-        string status;
-        if (hasProblem)
-            status = "Com problema";
-        else if (bluetooth != null)
-            // Um aparelho Bluetooth pareado mas desligado fica só com a parte "Bluetooth".
-            // Quando conecta, o Windows cria as outras partes (mouse, áudio...).
-            status = parts.Any(p => p.Class != "Bluetooth") ? "Conectado (Bluetooth)" : "Pareado, desconectado";
-        else
-            status = "Conectado";
-
-        // Bateria Bluetooth (quando o aparelho informa).
-        var battery = "—";
-        if (bluetooth != null && DeviceProperties.GetByte(bluetooth.Id, DeviceProperties.BluetoothBattery) is byte level)
-            battery = $"{level}%";
+        var (parts, status, battery) = group;
 
         // Áudio: cada saída/entrada vira uma linha (ex.: "Alto-falantes (...)", "Microfone (...)").
-        foreach (var audio in parts.Where(p => p.Class == "AudioEndpoint"))
+        foreach (var audio in parts.Where(p => p.Class == PartClass.Audio))
         {
             yield return new DeviceInfo
             {
@@ -263,7 +206,7 @@ public static class DeviceScanner
             };
         }
 
-        var others = parts.Where(p => p.Class != "AudioEndpoint").ToList();
+        var others = parts.Where(p => p.Class != PartClass.Audio).ToList();
         if (others.Count == 0)
             yield break;
 
@@ -278,7 +221,7 @@ public static class DeviceScanner
             Battery = battery,
             SortOrder = order,
         };
-        device.HardwareIds.AddRange(others.Select(p => HardwareId(p.Id)).OfType<string>().Distinct());
+        device.HardwareIds.AddRange(others.Select(p => p.HardwareId).OfType<string>().Distinct());
         yield return device;
     }
 
@@ -288,11 +231,11 @@ public static class DeviceScanner
     //    (teclados têm várias partes de teclado; mouses e receptores têm uma de cada).
     private static (string Kind, string Icon, int Order) DescribeKind(List<Part> parts, string name)
     {
-        if (parts.Any(p => p.Class is "XnaComposite" or "XboxComposite"))
+        if (parts.Any(p => p.Class == PartClass.Controller))
             return ("Controle", "controller", 0);
 
-        var keyboards = parts.Count(p => p.Class == "Keyboard");
-        var mice = parts.Count(p => p.Class == "Mouse");
+        var keyboards = parts.Count(p => p.Class == PartClass.Keyboard);
+        var mice = parts.Count(p => p.Class == PartClass.Mouse);
 
         if (keyboards > 0 || mice > 0)
         {
@@ -301,45 +244,39 @@ public static class DeviceScanner
             return isKeyboard ? ("Teclado", "keyboard", 2) : ("Mouse", "mouse", 1);
         }
 
-        return (parts.Any(p => p.Class == "Bluetooth") ? "Bluetooth" : "Outro", "device", 4);
+        // Aparelho Bluetooth desconectado (ou fone): o tipo vem do ícone que o Bluetooth informa.
+        return parts.Select(p => p.Icon).FirstOrDefault(i => i != null) switch
+        {
+            "input-keyboard" => ("Teclado", "keyboard", 2),
+            "input-mouse" or "input-tablet" => ("Mouse", "mouse", 1),
+            "input-gaming" => ("Controle", "controller", 0),
+            { } i when i.StartsWith("audio-") => ("Áudio", "headset", 5),
+            _ => (parts.Any(p => p.Class == PartClass.Bluetooth) ? "Bluetooth" : "Outro", "device", 4),
+        };
     }
 
-    private static string? HardwareId(string deviceId)
-    {
-        var match = Regex.Match(deviceId, @"VID_([0-9A-F]{4})&PID_([0-9A-F]{4})", RegexOptions.IgnoreCase);
-        return match.Success ? $"VID_{match.Groups[1].Value}&PID_{match.Groups[2].Value}".ToUpperInvariant() : null;
-    }
+    // Monta o código "VID_xxxx&PID_yyyy" que usamos em todo o app (fotos, OpenRGB, ocultos).
+    internal static string HardwareId(string vendorId, string productId) =>
+        $"VID_{vendorId}&PID_{productId}".ToUpperInvariant();
 
-    // Escolhe o nome mais útil entre as partes. Os nomes "genéricos" do Windows
+    // Escolhe o nome mais útil entre as partes. Os nomes "genéricos" do sistema
     // ("HID Keyboard Device", "USB Input Device") são a última opção.
     private static string PickName(List<Part> parts)
     {
         var name =
-            parts.FirstOrDefault(p => p.Class == "Bluetooth")?.Name
-            ?? parts.FirstOrDefault(p => p.Class is "XnaComposite" or "XboxComposite")?.Name
-            ?? parts.FirstOrDefault(p => p.Id.StartsWith(@"USB\") && !string.IsNullOrWhiteSpace(p.BusName))?.BusName
+            parts.FirstOrDefault(p => p.Class == PartClass.Bluetooth)?.Name
+            ?? parts.FirstOrDefault(p => p.Class == PartClass.Controller)?.Name
+            ?? parts.FirstOrDefault(p => p.IsUsb && !string.IsNullOrWhiteSpace(p.BusName))?.BusName
             ?? parts.FirstOrDefault(p => !string.IsNullOrWhiteSpace(p.BusName))?.BusName
             ?? parts[0].Name;
 
-        var vendor = parts.Select(p => FindVendor(p.Id)).FirstOrDefault(v => v != null);
+        var vendor = parts.Select(p => p.VendorId is { } v ? Vendors.GetValueOrDefault(v.ToUpperInvariant()) : null)
+            .FirstOrDefault(v => v != null);
         if (vendor != null && !vendor.Split('/').Any(v => name.Contains(v, StringComparison.OrdinalIgnoreCase)))
             name = $"{vendor} {name}";
 
         return name;
     }
-
-    // Lê o código do fabricante no ID do aparelho.
-    // USB: "VID_046D". Bluetooth: "VID&0002046D".
-    private static string? FindVendor(string deviceId)
-    {
-        var match = Regex.Match(deviceId, @"VID(?:_|&000[12])([0-9A-F]{4})", RegexOptions.IgnoreCase);
-        return match.Success && Vendors.TryGetValue(match.Groups[1].Value.ToUpperInvariant(), out var v) ? v : null;
-    }
-
-    // Aparelhos Bluetooth de verdade (não o adaptador do PC nem serviços internos).
-    private static bool IsBluetoothDevice(string id) =>
-        id.StartsWith(@"BTHENUM\DEV_", StringComparison.OrdinalIgnoreCase) ||
-        id.StartsWith(@"BTHLE\DEV_", StringComparison.OrdinalIgnoreCase);
 
     // O XInput não diz qual aparelho USB é qual controle, só "controle 1, 2, 3, 4".
     // Então colocamos a bateria nos controles já listados, na ordem; sobrando, criamos linhas novas.
@@ -373,3 +310,16 @@ public static class DeviceScanner
         }
     }
 }
+
+// Que tipo de parte é. Um teclado gamer, por exemplo, tem partes Keyboard e Mouse.
+public enum PartClass { Keyboard, Mouse, Controller, Audio, Bluetooth, Other }
+
+// Uma "parte" de um aparelho, como o sistema a enxerga.
+//   BusName: nome que o próprio aparelho informa pelo USB (ex.: "USB Receiver", "MYSTIC LIGHT").
+//   VendorId: código do fabricante (ex.: "046D"), para pôr o nome da marca na frente.
+//   Icon: tipo que o Bluetooth informa (ex.: "input-mouse"), para aparelhos desconectados.
+public sealed record Part(PartClass Class, string Name, string? BusName = null, bool IsUsb = false,
+    string? HardwareId = null, string? VendorId = null, string? Icon = null);
+
+// As partes de um mesmo aparelho físico, com o status e a bateria que o sistema informa.
+public sealed record PartGroup(List<Part> Parts, string Status, string Battery);

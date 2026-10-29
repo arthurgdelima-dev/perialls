@@ -159,7 +159,7 @@ public static class MonsGeekKeyboard
         {
             // A configuração fica na interface 2 (MI_02); as outras são as teclas normais, mídia etc.
             var device = DeviceList.Local.GetHidDevices(Vid, Pid).FirstOrDefault(d =>
-                d.DevicePath.Contains("mi_02", StringComparison.OrdinalIgnoreCase) && FeatureLength(d) == ReportLength);
+                IsConfigInterface(d) && FeatureLength(d) == ReportLength);
             if (device == null || !device.TryOpen(out HidStream stream))
                 return null;
 
@@ -171,6 +171,22 @@ public static class MonsGeekKeyboard
             {
                 stream.Dispose();
                 throw;
+            }
+        }
+
+        // No Windows o caminho do aparelho diz a interface ("mi_02"). No Linux o caminho é só
+        // /dev/hidrawN, então reconhecemos pela "usage" da interface de configuração (0xFFFF / 0x02).
+        private static bool IsConfigInterface(HidDevice d)
+        {
+            if (OperatingSystem.IsWindows())
+                return d.DevicePath.Contains("mi_02", StringComparison.OrdinalIgnoreCase);
+            try
+            {
+                return d.GetReportDescriptor().DeviceItems.Any(item => item.Usages.GetAllValues().Contains(0xFFFF0002u));
+            }
+            catch
+            {
+                return false;
             }
         }
 

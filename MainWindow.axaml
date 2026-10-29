@@ -1,0 +1,341 @@
+﻿<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:Perialls"
+        x:Class="Perialls.MainWindow"
+        Title="Perialls" Icon="/Assets/logo.ico" Width="660" Height="760" MinWidth="380" MinHeight="420"
+        WindowStartupLocation="CenterScreen"
+        SystemDecorations="None" TransparencyLevelHint="Transparent" Background="Transparent" CanResize="True"
+        Foreground="#F2F2F2">
+
+    <Window.Styles>
+        <!-- Ícone de linha branca simples, numa área de 24x24. -->
+        <Style Selector="Path.line">
+            <Setter Property="Width" Value="24"/>
+            <Setter Property="Height" Value="24"/>
+            <Setter Property="Stroke" Value="White"/>
+            <Setter Property="StrokeThickness" Value="1.6"/>
+            <Setter Property="StrokeLineCap" Value="Round"/>
+            <Setter Property="StrokeJoin" Value="Round"/>
+        </Style>
+
+        <!-- Botão discreto: transparente, clareia ao passar o mouse. -->
+        <Style Selector=":is(Button).ghost">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#F2F2F2"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="8"/>
+            <Setter Property="MinWidth" Value="0"/>
+            <Setter Property="MinHeight" Value="0"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector=":is(Button).ghost:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#1F1F24"/>
+            <Setter Property="Foreground" Value="#F2F2F2"/>
+        </Style>
+        <Style Selector=":is(Button).ghost:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#2A2A30"/>
+        </Style>
+        <!-- Botão liga/desliga: fica com fundo cinza quando ativado. -->
+        <Style Selector="ToggleButton.ghost:checked /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#2A2A30"/>
+        </Style>
+        <Style Selector=":is(Button).ghost:disabled">
+            <Setter Property="Opacity" Value="0.4"/>
+        </Style>
+        <Style Selector=":is(Button).ghost:disabled /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+
+        <!-- Botãozinho em formato de pílula (valores de DPI, brilho, velocidade, Hz).
+             Fica destacado quando é o valor atual. -->
+        <Style Selector="Button.pill">
+            <Setter Property="Padding" Value="8,2"/>
+            <Setter Property="Margin" Value="0,0,4,4"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Background" Value="#16161A"/>
+        </Style>
+        <Style Selector="Button.pill.current">
+            <Setter Property="Background" Value="#55555F"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+        </Style>
+
+        <Style Selector="TextBox.small">
+            <Setter Property="MinHeight" Value="22"/>
+            <Setter Property="Height" Value="22"/>
+            <Setter Property="Padding" Value="4,2"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Background" Value="#0A0A0C"/>
+            <Setter Property="Foreground" Value="#F2F2F2"/>
+            <Setter Property="BorderBrush" Value="#3A3A40"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="CaretBrush" Value="#F2F2F2"/>
+            <Setter Property="Margin" Value="0,0,0,4"/>
+        </Style>
+        <Style Selector="TextBox.small:pointerover /template/ Border#PART_BorderElement, TextBox.small:focus /template/ Border#PART_BorderElement">
+            <Setter Property="Background" Value="#0A0A0C"/>
+        </Style>
+
+        <!-- Ocultar/mostrar: aparece ao passar o mouse sobre o cartão (ou sempre, se já está oculto). -->
+        <Style Selector="Border.card Button.hide">
+            <Setter Property="Opacity" Value="0"/>
+        </Style>
+        <Style Selector="Border.card:pointerover Button.hide, Button.hide.hidden">
+            <Setter Property="Opacity" Value="1"/>
+        </Style>
+
+        <Style Selector="TextBlock.value">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="#D8D8DE"/>
+            <Setter Property="TextAlignment" Value="Center"/>
+        </Style>
+    </Window.Styles>
+
+    <!-- Moldura: fundo preto bem arredondado e, por dentro, uma borda fina branca.
+         Arrastar por uma área vazia move a janela; pelas bordas, muda o tamanho. -->
+    <Border x:Name="Frame" Background="Black" CornerRadius="24"
+            PointerPressed="Frame_PointerPressed" PointerMoved="Frame_PointerMoved">
+        <Border BorderBrush="#D0FFFFFF" BorderThickness="1" CornerRadius="18" Margin="10">
+            <Grid ColumnDefinitions="60,1,*">
+
+                <!-- Barra lateral -->
+                <StackPanel Margin="0,14,0,0" HorizontalAlignment="Center">
+                    <Image Source="/Assets/logo.png" Width="32" Height="32" Margin="0,0,0,14"
+                           RenderOptions.BitmapInterpolationMode="HighQuality" ToolTip.Tip="Perialls"/>
+                    <Button x:Name="RefreshButton" Click="Refresh_Click" ToolTip.Tip="Atualizar"
+                            Classes="ghost" Margin="0,0,0,8">
+                        <Viewbox Width="20" Height="20">
+                            <Path Classes="line" Data="{x:Static local:Icons.Refresh}"/>
+                        </Viewbox>
+                    </Button>
+                    <ToggleButton x:Name="ShowHiddenBox" ToolTip.Tip="Mostrar aparelhos ocultos"
+                                  IsCheckedChanged="ShowHidden_Changed" Classes="ghost" Margin="0,0,0,8">
+                        <Viewbox Width="20" Height="20">
+                            <Path Classes="line" Data="{x:Static local:Icons.Eye}"/>
+                        </Viewbox>
+                    </ToggleButton>
+                    <Button x:Name="StartOpenRgbButton" Click="StartOpenRgb_Click" IsVisible="False"
+                            ToolTip.Tip="Abrir o OpenRGB (para controlar o RGB)" Classes="ghost">
+                        <Viewbox Width="20" Height="20">
+                            <Path Classes="line" Data="{x:Static local:Icons.Fan}"/>
+                        </Viewbox>
+                    </Button>
+                </StackPanel>
+
+                <!-- Linha vertical que separa a barra lateral -->
+                <Rectangle Grid.Column="1" Fill="#333338" Margin="0,18"/>
+
+                <!-- Conteúdo -->
+                <Grid Grid.Column="2" Margin="12,10,10,12" RowDefinitions="Auto,*,Auto">
+
+                    <!-- Topo: título e botões de minimizar/fechar -->
+                    <DockPanel Margin="6,0,0,8">
+                        <Button DockPanel.Dock="Right" Click="Close_Click" ToolTip.Tip="Fechar"
+                                Classes="ghost" Padding="4">
+                            <Viewbox Width="16" Height="16">
+                                <Path Classes="line" Data="{x:Static local:Icons.Close}"/>
+                            </Viewbox>
+                        </Button>
+                        <Button DockPanel.Dock="Right" Click="Minimize_Click" ToolTip.Tip="Minimizar"
+                                Classes="ghost" Padding="4" Margin="0,0,4,0">
+                            <Viewbox Width="16" Height="16">
+                                <Path Classes="line" Data="{x:Static local:Icons.Minimize}"/>
+                            </Viewbox>
+                        </Button>
+                        <TextBlock Text="Periféricos" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    </DockPanel>
+
+                    <!-- Grade de cartões: a largura de cada cartão é calculada em Cards_SizeChanged -->
+                    <ScrollViewer x:Name="CardsScroll" Grid.Row="1" VerticalScrollBarVisibility="Auto"
+                                  SizeChanged="Cards_SizeChanged">
+                        <ItemsControl x:Name="DeviceList" Tag="240">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel ItemWidth="{Binding $parent[ItemsControl].Tag}"/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Classes="card" BorderBrush="#3A3A40" BorderThickness="1" CornerRadius="10"
+                                            Background="#08080A" Margin="5" Padding="12"
+                                            Opacity="{Binding Opacity}">
+                                        <Grid RowDefinitions="120,Auto,Auto,Auto,Auto">
+
+                                            <!-- Foto do aparelho... -->
+                                            <Image Source="{Binding Photo}" IsVisible="{Binding HasPhoto}"
+                                                   Stretch="Uniform" Margin="18,6"
+                                                   RenderOptions.BitmapInterpolationMode="HighQuality"/>
+
+                                            <!-- ...ou, sem foto, o ícone do tipo em tamanho grande -->
+                                            <Viewbox Width="56" Height="56" IsVisible="{Binding !HasPhoto}">
+                                                <Path Classes="line" StrokeThickness="1.1"
+                                                      Data="{Binding Icon, Converter={x:Static local:Icons.ForKind}}"/>
+                                            </Viewbox>
+
+                                            <!-- Ícone pequeno do tipo, no canto -->
+                                            <Viewbox Width="16" Height="16" HorizontalAlignment="Left" VerticalAlignment="Top">
+                                                <Path Classes="line" Data="{Binding Icon, Converter={x:Static local:Icons.ForKind}}"/>
+                                            </Viewbox>
+
+                                            <!-- Ocultar/mostrar -->
+                                            <Button Classes="ghost hide" Classes.hidden="{Binding IsHidden}"
+                                                    Click="ToggleHidden_Click" ToolTip.Tip="{Binding HideLabel}"
+                                                    HorizontalAlignment="Right" VerticalAlignment="Top"
+                                                    Margin="0,-6,-6,0" Padding="4">
+                                                <Viewbox Width="14" Height="14">
+                                                    <Path Classes="line" Stroke="#9A9AA5"
+                                                          Data="{Binding IsHidden, Converter={x:Static local:Icons.ForHidden}}"/>
+                                                </Viewbox>
+                                            </Button>
+
+                                            <!-- Nome e status -->
+                                            <!-- Dois cliques no nome para renomear (Enter salva, Esc cancela) -->
+                                            <TextBlock Grid.Row="1" Classes="name" Text="{Binding Name}" FontSize="14" FontWeight="SemiBold"
+                                                       Margin="0,8,0,0" TextAlignment="Center" TextTrimming="CharacterEllipsis"
+                                                       ToolTip.Tip="{Binding Name}" IsVisible="{Binding !IsRenaming}"
+                                                       DoubleTapped="DeviceName_DoubleTapped"/>
+                                            <TextBox Grid.Row="1" Classes="small" Text="{Binding Name, Mode=OneWay}" FontSize="13" Height="24"
+                                                     Margin="0,8,0,0" HorizontalContentAlignment="Center"
+                                                     IsVisible="{Binding IsRenaming}"
+                                                     ToolTip.Tip="Enter salva · Esc cancela · vazio volta ao nome original"
+                                                     AttachedToVisualTree="RenameBox_Attached" KeyDown="RenameBox_KeyDown"
+                                                     LostFocus="RenameBox_LostFocus"/>
+                                            <TextBlock Grid.Row="2" Foreground="#A8A8B3" FontSize="12" Margin="0,2,0,0"
+                                                       TextAlignment="Center" TextTrimming="CharacterEllipsis">
+                                                <Run Text="{Binding Kind}"/><Run Text=" · "/><Run Text="{Binding Status}"/>
+                                            </TextBlock>
+                                            <TextBlock Grid.Row="3" Classes="value" Margin="0,2,0,0" IsVisible="{Binding HasBattery}">
+                                                <Run Text="Bateria "/><Run Text="{Binding Battery}"/>
+                                            </TextBlock>
+
+                                            <!-- Extras: cores (OpenRGB ou teclado Akko) e DPI (HID++) -->
+                                            <StackPanel Grid.Row="4" Margin="0,10,0,0">
+                                                <WrapPanel HorizontalAlignment="Center" IsVisible="{Binding HasRgb}">
+                                                    <ItemsControl ItemsSource="{Binding Swatches}">
+                                                        <ItemsControl.ItemsPanel>
+                                                            <ItemsPanelTemplate>
+                                                                <WrapPanel/>
+                                                            </ItemsPanelTemplate>
+                                                        </ItemsControl.ItemsPanel>
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <Button Click="Swatch_Click" Cursor="Hand" Margin="0,0,5,5"
+                                                                        ToolTip.Tip="{Binding Hex}">
+                                                                    <Button.Template>
+                                                                        <ControlTemplate>
+                                                                            <Ellipse Width="16" Height="16" Fill="{Binding Brush}"
+                                                                                     Stroke="#55555F" StrokeThickness="1"/>
+                                                                        </ControlTemplate>
+                                                                    </Button.Template>
+                                                                </Button>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                    <!-- Cor personalizada: digite um código como #FF8800 e aperte Enter -->
+                                                    <TextBox Width="64" Text="#" Classes="small"
+                                                             ToolTip.Tip="Cor personalizada (ex.: #FF8800) + Enter"
+                                                             KeyDown="CustomColor_KeyDown"/>
+                                                </WrapPanel>
+
+                                                <StackPanel IsVisible="{Binding HasDpi}">
+                                                    <TextBlock Classes="value" Margin="0,0,0,6">
+                                                        <Run Text="DPI "/><Run Text="{Binding Dpi}" FontWeight="SemiBold"/>
+                                                    </TextBlock>
+                                                    <WrapPanel HorizontalAlignment="Center">
+                                                        <ItemsControl ItemsSource="{Binding DpiChoices}">
+                                                            <ItemsControl.ItemsPanel>
+                                                                <ItemsPanelTemplate>
+                                                                    <WrapPanel/>
+                                                                </ItemsPanelTemplate>
+                                                            </ItemsControl.ItemsPanel>
+                                                            <ItemsControl.ItemTemplate>
+                                                                <DataTemplate>
+                                                                    <Button Content="{Binding Value}" Click="DpiPreset_Click"
+                                                                            Classes="ghost pill" Classes.current="{Binding IsCurrent}"/>
+                                                                </DataTemplate>
+                                                            </ItemsControl.ItemTemplate>
+                                                        </ItemsControl>
+                                                        <!-- DPI personalizado: digite e aperte Enter -->
+                                                        <TextBox Width="56" Classes="small"
+                                                                 ToolTip.Tip="DPI personalizado + Enter"
+                                                                 KeyDown="DpiCustom_KeyDown"/>
+                                                    </WrapPanel>
+                                                </StackPanel>
+
+                                                <!-- Teclado Akko/MonsGeek: efeito, brilho, velocidade e Hz -->
+                                                <StackPanel Margin="0,4,0,0" IsVisible="{Binding HasKeyboardLighting}">
+                                                    <ComboBox ItemsSource="{x:Static local:MonsGeekKeyboard.Effects}"
+                                                              DisplayMemberBinding="{Binding Name}"
+                                                              SelectedItem="{Binding KeyboardEffect, Mode=OneWay}"
+                                                              SelectionChanged="KeyboardEffect_Changed"
+                                                              FontSize="11" MinWidth="140" HorizontalAlignment="Center"
+                                                              Margin="0,0,0,8" ToolTip.Tip="Efeito de iluminação"/>
+
+                                                    <TextBlock Classes="value" Margin="0,0,0,4">
+                                                        <Run Text="Brilho "/><Run Text="{Binding KeyboardLighting.Brightness}" FontWeight="SemiBold"/>
+                                                    </TextBlock>
+                                                    <ItemsControl ItemsSource="{Binding BrightnessChoices}" HorizontalAlignment="Center">
+                                                        <ItemsControl.ItemsPanel>
+                                                            <ItemsPanelTemplate>
+                                                                <WrapPanel/>
+                                                            </ItemsPanelTemplate>
+                                                        </ItemsControl.ItemsPanel>
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <Button Content="{Binding Value}" Click="KeyboardBrightness_Click"
+                                                                        Classes="ghost pill" Classes.current="{Binding IsCurrent}"/>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+
+                                                    <TextBlock Classes="value" Margin="0,4,0,4">
+                                                        <Run Text="Velocidade "/><Run Text="{Binding KeyboardLighting.Speed}" FontWeight="SemiBold"/>
+                                                    </TextBlock>
+                                                    <ItemsControl ItemsSource="{Binding SpeedChoices}" HorizontalAlignment="Center">
+                                                        <ItemsControl.ItemsPanel>
+                                                            <ItemsPanelTemplate>
+                                                                <WrapPanel/>
+                                                            </ItemsPanelTemplate>
+                                                        </ItemsControl.ItemsPanel>
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <Button Content="{Binding Value}" Click="KeyboardSpeed_Click"
+                                                                        Classes="ghost pill" Classes.current="{Binding IsCurrent}"/>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+
+                                                    <TextBlock Classes="value" Margin="0,4,0,4">
+                                                        <Run Text="Taxa de atualização "/><Run Text="{Binding ReportRateHz}" FontWeight="SemiBold"/><Run Text=" Hz"/>
+                                                    </TextBlock>
+                                                    <ItemsControl ItemsSource="{Binding ReportRateChoices}" HorizontalAlignment="Center">
+                                                        <ItemsControl.ItemsPanel>
+                                                            <ItemsPanelTemplate>
+                                                                <WrapPanel HorizontalAlignment="Center"/>
+                                                            </ItemsPanelTemplate>
+                                                        </ItemsControl.ItemsPanel>
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <Button Content="{Binding Value}" Click="ReportRate_Click"
+                                                                        Classes="ghost pill" Classes.current="{Binding IsCurrent}"/>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                </StackPanel>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+
+                    <!-- Rodapé com mensagens -->
+                    <TextBlock x:Name="StatusText" Grid.Row="2" Margin="6,8,0,0" Foreground="#8A8A95"
+                               FontSize="11" TextWrapping="Wrap"/>
+                </Grid>
+            </Grid>
+        </Border>
+    </Border>
+</Window>
