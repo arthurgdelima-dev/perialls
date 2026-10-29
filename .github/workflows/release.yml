@@ -1,0 +1,45 @@
+# Gera os executáveis e cria a Release no GitHub quando uma tag v* é enviada:
+#   git tag v0.2.0
+#   git push --tags
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write # para criar a Release
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      # Os dois saem do Linux mesmo: o .NET gera o .exe do Windows de qualquer sistema.
+      - name: Gerar os executáveis
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          dotnet publish Perialls.csproj -p:PublishProfile=win-x64 -p:Version="$version"
+          dotnet publish Perialls.csproj -p:PublishProfile=linux-x64 -p:Version="$version"
+          mkdir dist
+          cp publish/Perialls.exe dist/Perialls-win-x64.exe
+          cp publish/linux/Perialls dist/Perialls-linux-x64
+          # O .tar.gz guarda a permissão de execução (um arquivo solto baixado pelo navegador perde).
+          chmod +x dist/Perialls-linux-x64
+          tar -czf dist/Perialls-linux-x64.tar.gz -C dist Perialls-linux-x64
+          cd dist && sha256sum Perialls-win-x64.exe Perialls-linux-x64.tar.gz > SHA256SUMS.txt
+
+      # As notas saem sozinhas, a partir dos commits e PRs desde a última versão.
+      - name: Criar a Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            dist/Perialls-win-x64.exe dist/Perialls-linux-x64.tar.gz dist/SHA256SUMS.txt \
+            --title "Perialls ${GITHUB_REF_NAME#v}" \
+            --generate-notes

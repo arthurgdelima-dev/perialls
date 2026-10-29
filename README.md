@@ -27,9 +27,16 @@ Não substitui os apps das marcas (G Hub, Synapse etc.). É só uma tela simples
 
 ## Como usar
 
-1. Baixe na página de [Releases](../../releases) e abra. Não precisa instalar nada.
-   - **Windows:** `Perialls.exe`.
-   - **Linux:** `Perialls`. Dê permissão de execução (`chmod +x Perialls`) e abra.
+1. **[Baixar a última versão](https://github.com/arthurgdelima-dev/perialls/releases/latest)** e abrir.
+   Não precisa instalar nada.
+   - **Windows:** `Perialls-win-x64.exe`.
+   - **Linux:** `Perialls-linux-x64.tar.gz`. Extraia e abra:
+     ```
+     tar -xzf Perialls-linux-x64.tar.gz
+     chmod +x Perialls-linux-x64   # o .tar.gz já guarda a permissão; só precisa se ela se perder
+     ./Perialls-linux-x64
+     ```
+   - `SHA256SUMS.txt` traz o hash de cada arquivo, se você quiser conferir o download.
 
    > **"O Windows protegeu o computador"?** Esse aviso aparece porque o `.exe` não tem assinatura
    > digital (o certificado é pago). Clique em **Mais informações → Executar assim mesmo**. O código
@@ -113,6 +120,19 @@ de qualquer um dos sistemas:
 dotnet publish Perialls.csproj -p:PublishProfile=win-x64     # sai em publish\Perialls.exe
 dotnet publish Perialls.csproj -p:PublishProfile=linux-x64   # sai em publish/linux/Perialls
 ```
+
+## Publicar uma versão
+
+As Releases são feitas sozinhas pelo GitHub Actions ([.github/workflows/release.yml](.github/workflows/release.yml)).
+Basta criar uma tag que comece com `v` e enviar:
+
+```
+git tag v0.2.0
+git push --tags
+```
+
+Em alguns minutos aparece a Release com o `.exe` do Windows, o `.tar.gz` do Linux, os hashes e as
+notas geradas a partir dos commits. Para acompanhar, veja a aba *Actions* do repositório.
 
 ## Adicionar a foto de um aparelho
 
