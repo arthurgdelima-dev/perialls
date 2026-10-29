@@ -4,7 +4,6 @@
   "sidebar.showHidden": "Show hidden devices",
   "sidebar.sync": "Sync RGB: the same color on every device",
   "sidebar.syncTitle": "Color for all",
-  "sidebar.openRgb": "Open OpenRGB (to control RGB)",
   "sidebar.language": "Language: English. Click to switch to Portuguese",
   "window.close": "Close",
   "window.minimize": "Minimize",
@@ -84,7 +83,6 @@
   "status.hiddenCount": " ({0} hidden)",
   "status.updatedAt": " · updated at {0}",
   "status.hidDenied": "No permission to talk to Logitech/Akko: install the udev rule (see the README).",
-  "status.rgbUnavailable": "RGB unavailable: open OpenRGB with the SDK Server on.",
   "status.scanError": "Could not read the devices: {0}",
   "status.supportOpened": "Support request opened in the browser. Check the details and click \"Create\".",
   "status.downloadingDriver": "Downloading the {0} driver...",
@@ -105,8 +103,6 @@
   "status.dpiFailed": "Could not change the DPI: {0}",
   "status.lightingFailed": "Could not change the lighting: {0}",
   "status.rateFailed": "Could not change the polling rate: {0}",
-  "status.openingOpenRgb": "Opening OpenRGB and waiting for it to find the devices...",
-  "status.openRgbFailed": "Could not open OpenRGB: {0}",
 
   "error.noRgb": "has no RGB",
   "error.nothingSent": "nothing was sent, {0}",
@@ -127,7 +123,6 @@
   "tip.installed": "{0} driver {1} installed",
   "tip.installedNoVersion": "{0} driver installed",
   "tip.localDriver": "Local driver under test: {0}",
-  "tip.openRgb": "OpenRGB controls this device's RGB. Click to open its website",
   "tip.support": "Request support: opens a GitHub request with this device's details",
   "support.title": "Support for {0}",
 
@@ -184,5 +179,13 @@
   "driver.valueRange": "value outside 0 to 255 in {{{0}}}",
   "driver.blocked": "command {0} blocked",
   "driver.badNumber": "invalid \"{0}\": \"{1}\" (use for example 0x3151)",
-  "driver.byte": "\"{0}\" must be a number from 0 to 255"
+  "driver.byte": "\"{0}\" must be a number from 0 to 255",
+
+  "status.rgbStarting": "Turning on RGB...",
+  "status.rgbFailed": "Could not turn on RGB: {0}",
+  "status.openRgbUdev": "For RGB to work, Linux needs to let OpenRGB access the USB devices. Run this once and plug the device back in: {0}",
+  "error.rgbNotFound": "OpenRGB did not find this device",
+  "error.openRgbMissing": "OpenRGB did not come bundled (openrgb folder) and is not installed",
+  "error.openRgbClosed": "OpenRGB closed on its own",
+  "error.openRgbNoReply": "OpenRGB did not respond"
 }

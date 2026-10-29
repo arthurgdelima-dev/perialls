@@ -15,7 +15,6 @@ namespace Perialls;
 public static class DriverCatalog
 {
     private const string DefaultSource = "https://raw.githubusercontent.com/arthurgdelima-dev/perialls/main/drivers/";
-    public const string OpenRgbSite = "https://openrgb.org";
     public const string Repository = "https://github.com/arthurgdelima-dev/perialls";
 
     private static readonly string DataFolder = Path.Combine(
@@ -209,6 +208,9 @@ public static class DriverCatalog
     // Também liga o driver instalado ao aparelho, para os controles aparecerem no cartão.
     public static void Describe(DeviceInfo device)
     {
+        // Aparelhos que o OpenRGB suporta ganham as bolinhas de cor; o OpenRGB embutido só liga no primeiro clique.
+        device.OpenRgbSupported = device.HardwareIds.Any(_openRgbIds.Contains);
+
         // Aparelho com driver embutido: os drivers JSON dele são ignorados.
         var hasBuiltIn = device.HardwareIds.Any(BuiltInDevices.Contains);
         var entry = hasBuiltIn ? null : Index.Drivers.FirstOrDefault(e => e.Devices.Any(device.HardwareIds.Contains));
@@ -266,13 +268,8 @@ public static class DriverCatalog
         }
         else if (device.HasRgb || device.HasDpi || device.HasKeyboardLighting)
         {
-            // Já tem funções pelo próprio app (Logitech, Akko, OpenRGB aberto): nada a oferecer.
+            // Já tem funções pelo próprio app (Logitech, Akko, OpenRGB embutido): nada a oferecer.
             device.DriverAction = DriverAction.None;
-        }
-        else if (device.HardwareIds.Any(_openRgbIds.Contains))
-        {
-            device.DriverAction = DriverAction.OpenRgb;
-            device.DriverTip = Lang.T("tip.openRgb");
         }
         else if (device.HardwareIds.Count > 0)
         {
@@ -392,7 +389,7 @@ public static class DriverCatalog
 }
 
 // O que o ícone do canto do cartão faz.
-public enum DriverAction { None, Download, Update, Installed, OpenRgb, RequestSupport }
+public enum DriverAction { None, Download, Update, Installed, RequestSupport }
 
 public sealed class DriverIndex
 {

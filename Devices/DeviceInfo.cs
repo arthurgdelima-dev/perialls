@@ -24,7 +24,11 @@ public sealed class DeviceInfo : INotifyPropertyChanged
 
     // Endereço do aparelho no OpenRGB. Se estiver vazio, o aparelho não tem RGB controlável.
     public string? RgbLocation { get; set; }
-    public bool HasRgb => RgbLocation != null || HasKeyboardLighting || DriverHasColor;
+    public bool HasRgb => RgbLocation != null || OpenRgbSupported || HasKeyboardLighting || DriverHasColor;
+
+    // Está na lista de aparelhos do OpenRGB, mas ele ainda não foi ligado (só liga no primeiro clique de cor).
+    public bool OpenRgbSupported { get; set; }
+    public bool NeedsOpenRgb => RgbLocation == null && OpenRgbSupported && !HasKeyboardLighting && !DriverHasColor;
 
     // Cor atual: a que o aparelho informa (teclado Akko, OpenRGB) ou, se ele não informa,
     // a última que você escolheu (settings.json). Fica destacada nas bolinhas de cor.

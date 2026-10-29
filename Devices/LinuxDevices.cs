@@ -290,6 +290,48 @@ public static class LinuxDevices
         return false;
     }
 
+    // Diz se algum desses aparelhos USB não pode ser aberto pelo OpenRGB (falta a regra do udev dele).
+    // Testa o nó USB (/dev/bus/usb/...) e os /dev/hidraw* do aparelho, que é o que o OpenRGB usa.
+    public static bool UsbAccessDenied(IEnumerable<DeviceInfo> devices)
+    {
+        var ids = devices.SelectMany(d => d.HardwareIds).ToHashSet();
+        if (ids.Count == 0)
+            return false;
+
+        foreach (var usb in Directories("/sys/bus/usb/devices", "*"))
+        {
+            var id = DeviceScanner.HardwareId(Read(usb, "idVendor") ?? "", Read(usb, "idProduct") ?? "");
+            if (!ids.Contains(id) || !int.TryParse(Read(usb, "busnum"), out var bus) || !int.TryParse(Read(usb, "devnum"), out var dev))
+                continue;
+
+            var real = RealPath(usb);
+            var nodes = Directories("/sys/class/hidraw", "hidraw*")
+                .Where(h => FindUsbDevice(RealPath(Path.Combine(h, "device"))) == real)
+                .Select(h => "/dev/" + Path.GetFileName(h))
+                .Append($"/dev/bus/usb/{bus:D3}/{dev:D3}");
+            if (nodes.Any(CannotOpen))
+                return true;
+        }
+        return false;
+    }
+
+    private static bool CannotOpen(string node)
+    {
+        try
+        {
+            using var _ = File.Open(node, FileMode.Open, FileAccess.ReadWrite);
+            return false;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return true;
+        }
+        catch
+        {
+            return false; // aparelho saiu no meio etc.: não é falta de permissão
+        }
+    }
+
     private static IEnumerable<string> Directories(string folder, string pattern)
     {
         try

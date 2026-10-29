@@ -1,13 +1,16 @@
 using System.Diagnostics;
 using System.IO;
+using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 using System.Text.RegularExpressions;
 using OpenRGB.NET;
 
 namespace Perialls;
 
-// Conversa com o OpenRGB pela rede (o "SDK Server" dele, na porta 6742).
-// O OpenRGB é um programa separado, instalado à parte: nós só mandamos comandos para ele.
-// Cada ação abre uma conexão rápida e fecha logo depois. Nada fica conectado.
+// Conversa com o OpenRGB pela rede (o "SDK Server" dele, na porta 6742, só no próprio PC).
+// O OpenRGB é um programa separado (GPL), que vem junto na pasta "openrgb" da release: nós só
+// mandamos comandos para ele. Cada ação abre uma conexão rápida e fecha logo depois.
+// Ele só é aberto quando a pessoa usa o RGB, nunca ao abrir o Perialls (veja EnsureRunningAsync).
 public static class OpenRgb
 {
     private const string Host = "127.0.0.1";
@@ -94,10 +97,14 @@ public static class OpenRgb
         return match.Success ? $"VID_{match.Groups[1].Value}&PID_{match.Groups[2].Value}".ToUpperInvariant() : null;
     }
 
-    // Procura o OpenRGB nos lugares onde o instalador costuma colocá-lo.
-    // No Linux ele é instalado pelo gerenciador de pacotes, como "openrgb", em alguma pasta do PATH.
+    // O OpenRGB que vem junto com o Perialls (pasta "openrgb" ao lado do executável). Rodando pelo
+    // código-fonte (sem a pasta), usa um OpenRGB instalado no sistema, se houver.
     public static string? FindExe()
     {
+        var bundled = Path.Combine(AppContext.BaseDirectory, "openrgb", OperatingSystem.IsWindows() ? "OpenRGB.exe" : "AppRun");
+        if (File.Exists(bundled))
+            return bundled;
+
         if (!OperatingSystem.IsWindows())
         {
             return (Environment.GetEnvironmentVariable("PATH") ?? "")
@@ -117,18 +124,140 @@ public static class OpenRgb
             .FirstOrDefault(File.Exists);
     }
 
-    // Abre o OpenRGB minimizado com o servidor ligado e espera ele terminar de detectar os aparelhos.
-    public static async Task<Process?> StartAsync(string exe)
-    {
-        var process = Process.Start(new ProcessStartInfo(exe, "--server --startminimized"));
+    // O OpenRGB que nós abrimos. Fica aberto enquanto o Perialls estiver aberto (para não detectar
+    // os aparelhos de novo a cada cor) e fecha junto com ele.
+    private static Process? _started;
 
-        for (int i = 0; i < 30; i++)
+    // Configuração própria, separada da do OpenRGB da pessoa: sem perfis, nada é aplicado ao abrir.
+    private static readonly string ConfigFolder = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Perialls", "openrgb");
+
+    // Liga o RGB. Se já houver um OpenRGB aberto com o servidor ligado (o da pessoa ou o nosso), usa ele.
+    // Senão, abre o nosso só como servidor (sem janela, sem perfil) e espera ele achar os aparelhos.
+    // Precisa ser chamado na thread da tela: no Linux, o OpenRGB fecha quando a thread que o abriu termina.
+    // Devolve null se deu certo, ou o motivo.
+    public static async Task<string?> EnsureRunningAsync()
+    {
+        if (await Task.Run(TryGetDevices) != null)
+            return null;
+
+        if (_started is not { HasExited: false })
+        {
+            if (FindExe() is not { } exe)
+                return Lang.T("error.openRgbMissing");
+            try
+            {
+                _started = StartServer(exe);
+            }
+            catch (Exception ex)
+            {
+                return ex.Message;
+            }
+        }
+
+        // A detecção leva alguns segundos e os aparelhos aparecem aos poucos: espera a lista parar de crescer.
+        int last = -1, stable = 0;
+        for (int i = 0; i < 30 && stable < 3; i++)
         {
             await Task.Delay(1000);
-            if (TryGetDevices() is { Length: > 0 })
-                break;
+            var count = (await Task.Run(TryGetDevices))?.Length ?? -1;
+            stable = count > 0 && count == last ? stable + 1 : 0;
+            last = count;
+            if (_started.HasExited)
+                return Lang.T("error.openRgbClosed");
         }
+        return last >= 0 ? null : Lang.T("error.openRgbNoReply");
+    }
+
+    private static Process StartServer(string exe)
+    {
+        Directory.CreateDirectory(ConfigFolder);
+        string[] args = ["--server", "--config", ConfigFolder, "--noautoconnect"];
+
+        // Linux: o setpriv faz o kernel encerrar o OpenRGB se o Perialls fechar de repente (sinal de morte do pai).
+        var setpriv = OperatingSystem.IsLinux() && File.Exists("/usr/bin/setpriv");
+        var info = new ProcessStartInfo(setpriv ? "/usr/bin/setpriv" : exe)
+        {
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            WorkingDirectory = Path.GetDirectoryName(exe)!,
+        };
+        if (setpriv)
+        {
+            foreach (var a in new[] { "--pdeathsig", "TERM", "--", exe })
+                info.ArgumentList.Add(a);
+        }
+        foreach (var a in args)
+            info.ArgumentList.Add(a);
+
+        var process = Process.Start(info) ?? throw new InvalidOperationException(Lang.T("error.openRgbNoReply"));
+
+        // Windows: um "job object" faz o Windows encerrar o OpenRGB junto com o Perialls, mesmo se ele travar.
+        if (OperatingSystem.IsWindows())
+            WindowsJob.Add(process);
         return process;
+    }
+
+    // Fecha o OpenRGB que nós abrimos (o da pessoa continua aberto).
+    public static void StopIfStarted()
+    {
+        try
+        {
+            if (_started is { HasExited: false })
+                _started.Kill(entireProcessTree: true);
+        }
+        catch
+        {
+            // Já tinha fechado.
+        }
+    }
+
+    [SupportedOSPlatform("windows")]
+    private static class WindowsJob
+    {
+        private static IntPtr _job;
+
+        public static void Add(Process process)
+        {
+            if (_job == IntPtr.Zero)
+            {
+                _job = CreateJobObject(IntPtr.Zero, null);
+                var info = new ExtendedLimitInformation();
+                info.Basic.LimitFlags = 0x2000; // JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+                SetInformationJobObject(_job, 9, ref info, Marshal.SizeOf<ExtendedLimitInformation>());
+            }
+            // O "job" fica aberto até o Perialls fechar; aí o Windows encerra tudo o que está nele.
+            AssignProcessToJobObject(_job, process.Handle);
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct BasicLimitInformation
+        {
+            public long PerProcessUserTimeLimit, PerJobUserTimeLimit;
+            public uint LimitFlags;
+            public UIntPtr MinimumWorkingSetSize, MaximumWorkingSetSize;
+            public uint ActiveProcessLimit;
+            public UIntPtr Affinity;
+            public uint PriorityClass, SchedulingClass;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct ExtendedLimitInformation
+        {
+            public BasicLimitInformation Basic;
+            public ulong ReadOperationCount, WriteOperationCount, OtherOperationCount;
+            public ulong ReadTransferCount, WriteTransferCount, OtherTransferCount;
+            public UIntPtr ProcessMemoryLimit, JobMemoryLimit, PeakProcessMemoryUsed, PeakJobMemoryUsed;
+        }
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
+        private static extern IntPtr CreateJobObject(IntPtr attributes, string? name);
+
+        [DllImport("kernel32.dll")]
+        private static extern bool SetInformationJobObject(IntPtr job, int infoClass, ref ExtendedLimitInformation info, int length);
+
+        [DllImport("kernel32.dll")]
+        private static extern bool AssignProcessToJobObject(IntPtr job, IntPtr process);
     }
 
     private static OpenRgbClient Connect() => new(Host, Port, "Perialls", true, 500);

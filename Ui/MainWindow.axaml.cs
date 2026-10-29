@@ -16,8 +16,8 @@ public partial class MainWindow : Window
     private readonly HashSet<string> _hidden = HiddenDevices.Load();
     private readonly Dictionary<string, string> _names = DeviceNames.Load();
 
-    // Se fomos nós que abrimos o OpenRGB, fechamos ele junto com o app (nada fica rodando).
-    private Process? _openRgbWeStarted;
+    // O RGB (OpenRGB) já foi ligado e a busca já viu os aparelhos dele.
+    private bool _rgbOn;
 
     // Busca de fotos em andamento. Um novo Atualizar cancela a anterior.
     private CancellationTokenSource? _photoSearch;
@@ -34,7 +34,6 @@ public partial class MainWindow : Window
         InitializeComponent();
         LanguageButton.Content = Lang.Current == "pt-BR" ? "PT" : "EN";
         Opened += async (_, _) => await RefreshAsync();
-        Closed += (_, _) => StopOpenRgbIfWeStartedIt();
     }
 
     private async void Refresh_Click(object? sender, RoutedEventArgs e) => await RefreshAsync();
@@ -81,15 +80,11 @@ public partial class MainWindow : Window
             if (result.HidAccessDenied)
                 StatusText.Text += "\n" + Lang.T("status.hidDenied");
 
-            if (!result.OpenRgbRunning)
-            {
-                StatusText.Text += "\n" + Lang.T("status.rgbUnavailable");
-                StartOpenRgbButton.IsVisible = OpenRgb.FindExe() != null;
-            }
-            else
-            {
-                StartOpenRgbButton.IsVisible = false;
-            }
+            // Linux: sem a regra do udev do OpenRGB, ele não consegue abrir os aparelhos USB de RGB.
+            if (OperatingSystem.IsLinux() && OpenRgb.FindExe() is { } exe
+                && LinuxDevices.UsbAccessDenied(_devices.Where(d => d.OpenRgbSupported)))
+                StatusText.Text += "\n" + Lang.T("status.openRgbUdev",
+                    $"\"{exe}\" --print-udev-rules | sudo tee /etc/udev/rules.d/60-openrgb.rules > /dev/null && sudo udevadm control --reload-rules && sudo udevadm trigger");
         }
         catch (Exception ex)
         {
@@ -205,9 +200,6 @@ public partial class MainWindow : Window
 
         switch (device.DriverAction)
         {
-            case DriverAction.OpenRgb:
-                await OpenLinkAsync(DriverCatalog.OpenRgbSite);
-                break;
             case DriverAction.RequestSupport:
                 await OpenLinkAsync(DriverCatalog.SupportRequestUrl(device));
                 StatusText.Text = Lang.T("status.supportOpened");
@@ -263,6 +255,14 @@ public partial class MainWindow : Window
             return;
         var (r, g, b) = color;
 
+        // Primeira cor num aparelho do OpenRGB: liga o OpenRGB embutido e busca de novo (os cartões são recriados).
+        if (device.NeedsOpenRgb)
+        {
+            if (!await EnsureRgbAsync())
+                return;
+            device = _devices.FirstOrDefault(d => d.Key == device.Key) ?? device;
+        }
+
         var error = await SetColorAsync(device, r, g, b);
         ShowDevices();
         StatusText.Text = error != null ? Lang.T("status.colorFailed", device.Name, error)
@@ -285,6 +285,10 @@ public partial class MainWindow : Window
         if (ParseColor(hex) is not { } color)
             return;
         var (r, g, b) = color;
+
+        // Sincronizar liga o OpenRGB embutido (se ainda não estiver ligado), para incluir memória, placa de vídeo etc.
+        if (OpenRgb.FindExe() != null && !await EnsureRgbAsync())
+            return;
 
         var targets = _devices.Where(d => d.HasRgb).ToList();
         if (targets.Count == 0)
@@ -337,6 +341,10 @@ public partial class MainWindow : Window
                 await Task.Run(() => OpenRgb.SetColor(device.RgbLocation, r, g, b));
                 device.ReportedColor = ColorText(r, g, b);
             }
+            else if (device.OpenRgbSupported)
+            {
+                return Lang.T("error.rgbNotFound");
+            }
             else
             {
                 return Lang.T("error.noRgb");
@@ -354,6 +362,29 @@ public partial class MainWindow : Window
         {
             return ex.Message;
         }
+    }
+
+    // Liga o OpenRGB embutido (ou usa o que já estiver aberto) e busca os aparelhos de novo, para os
+    // cartões ganharem o RGB. Só acontece num clique de cor ou em Sincronizar, nunca ao abrir o app.
+    // Depois de ligado, ele fica aberto até o Perialls fechar.
+    private async Task<bool> EnsureRgbAsync()
+    {
+        if (_rgbOn)
+            return true;
+
+        SyncButton.IsEnabled = false;
+        StatusText.Text = Lang.T("status.rgbStarting");
+        var error = await OpenRgb.EnsureRunningAsync();
+        SyncButton.IsEnabled = true;
+        if (error != null)
+        {
+            StatusText.Text = Lang.T("status.rgbFailed", error);
+            return false;
+        }
+
+        _rgbOn = true;
+        await RefreshAsync();
+        return true;
     }
 
     // "#FF8800" → (255, 136, 0). Se o texto não for uma cor, avisa no rodapé e devolve null.
@@ -588,9 +619,7 @@ public partial class MainWindow : Window
             Position = Position,
             Width = Width,
             Height = Height,
-            _openRgbWeStarted = _openRgbWeStarted,
         };
-        _openRgbWeStarted = null; // o OpenRGB continua aberto: agora é a janela nova que cuida dele
         if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
             desktop.MainWindow = window;
         window.Show();
@@ -600,41 +629,4 @@ public partial class MainWindow : Window
     private void Minimize_Click(object? sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
 
     private void Close_Click(object? sender, RoutedEventArgs e) => Close();
-
-    private async void StartOpenRgb_Click(object? sender, RoutedEventArgs e)
-    {
-        var exe = OpenRgb.FindExe();
-        if (exe == null)
-            return;
-
-        StartOpenRgbButton.IsEnabled = false;
-        StatusText.Text = Lang.T("status.openingOpenRgb");
-        try
-        {
-            _openRgbWeStarted = await OpenRgb.StartAsync(exe);
-        }
-        catch (Exception ex)
-        {
-            StatusText.Text = Lang.T("status.openRgbFailed", ex.Message);
-            return;
-        }
-        finally
-        {
-            StartOpenRgbButton.IsEnabled = true;
-        }
-        await RefreshAsync();
-    }
-
-    private void StopOpenRgbIfWeStartedIt()
-    {
-        try
-        {
-            if (_openRgbWeStarted is { HasExited: false })
-                _openRgbWeStarted.Kill();
-        }
-        catch
-        {
-            // Se não conseguir fechar, não tem problema: o usuário pode fechar pelo próprio OpenRGB.
-        }
-    }
 }
