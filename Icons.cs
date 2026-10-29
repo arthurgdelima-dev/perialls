@@ -17,6 +17,9 @@ public static class Icons
     public static readonly Geometry EyeOff = Parse("M2,12 C5,6.5 19,6.5 22,12 C19,17.5 5,17.5 2,12 Z M12,9.5 A2.5,2.5 0 1 1 12,14.5 A2.5,2.5 0 1 1 12,9.5 Z M4,4 L20,20");
     public static readonly Geometry Close = Parse("M7,7 L17,17 M17,7 L7,17");
     public static readonly Geometry Minimize = Parse("M7,12 H17");
+    public static readonly Geometry Download = Parse("M12,4 V15 M7.5,10.5 L12,15 L16.5,10.5 M5,19.5 H19");
+    public static readonly Geometry Plus = Parse("M12,6 V18 M6,12 H18");
+    public static readonly Geometry Check = Parse("M6,12.5 L10,16.5 L18,8");
 
     // O ícone escolhido conforme o tipo do aparelho (propriedade Icon do DeviceInfo).
     public static readonly IValueConverter ForKind = new FuncValueConverter<string?, Geometry>(icon => icon switch
@@ -31,6 +34,17 @@ public static class Icons
 
     // Olho aberto para aparelhos ocultos (clicar mostra), riscado para os visíveis (clicar oculta).
     public static readonly IValueConverter ForHidden = new FuncValueConverter<bool, Geometry>(hidden => hidden ? Eye : EyeOff);
+
+    // O ícone do canto do cartão, conforme o que dá para fazer com o driver do aparelho.
+    public static readonly IValueConverter ForDriver = new FuncValueConverter<DriverAction, Geometry?>(action => action switch
+    {
+        DriverAction.Download => Download,
+        DriverAction.Update => Refresh,
+        DriverAction.Installed => Check,
+        DriverAction.OpenRgb => Fan,
+        DriverAction.RequestSupport => Plus,
+        _ => null,
+    });
 
     private static Geometry Parse(string data) => StreamGeometry.Parse(data);
 }

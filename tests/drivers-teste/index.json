@@ -1,0 +1,13 @@
+{
+  "format": 1,
+  "drivers": [
+    {
+      "name": "Teclado Dell (teste)",
+      "file": "teste.json",
+      "version": "1.0.0",
+      "sha256": "7f2ee7e1b2433d7b8f26bbc8ce1016199fc542abda6caa4cfcb1401e9cd2acdb",
+      "devices": ["VID_413C&PID_2113"]
+    }
+  ],
+  "openrgb": { "file": "openrgb.json", "sha256": "15da7c46bcdb4d6265e04dc834a92266ab00e004bb19c38aab5fb3e35fc5a604" }
+}
