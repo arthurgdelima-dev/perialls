@@ -44,6 +44,11 @@ public static class DriverCatalog
     private static readonly Dictionary<string, Driver> Loaded = [];
     private static readonly List<Driver> LocalDrivers = [];
 
+    // Aparelhos com driver embutido no código do app. O embutido tem prioridade: drivers JSON para
+    // estes VID/PID são ignorados e não geram ícone. (Akko/MonsGeek: precisa perguntar o modelo ao
+    // teclado, porque vários modelos usam o mesmo PID, e isso um JSON não faz.)
+    public static readonly HashSet<string> BuiltInDevices = [MonsGeekKeyboard.HardwareId];
+
     // Valores atuais dos controles de cada aparelho (brilho, efeito...), guardados enquanto o app está aberto.
     private static readonly Dictionary<string, Dictionary<string, int>> Values = [];
 
@@ -204,13 +209,16 @@ public static class DriverCatalog
     // Também liga o driver instalado ao aparelho, para os controles aparecerem no cartão.
     public static void Describe(DeviceInfo device)
     {
-        var entry = Index.Drivers.FirstOrDefault(e => e.Devices.Any(device.HardwareIds.Contains));
+        // Aparelho com driver embutido: os drivers JSON dele são ignorados.
+        var hasBuiltIn = device.HardwareIds.Any(BuiltInDevices.Contains);
+        var entry = hasBuiltIn ? null : Index.Drivers.FirstOrDefault(e => e.Devices.Any(device.HardwareIds.Contains));
         device.DriverEntry = entry;
         device.Driver = null;
 
         // Um driver em teste (pasta "local") tem prioridade sobre o do índice.
-        var local = LocalDrivers.FirstOrDefault(d => d.HardwareIds.Overlaps(device.HardwareIds));
-        var installedFile = entry?.File ?? Loaded.FirstOrDefault(kv => kv.Value.HardwareIds.Overlaps(device.HardwareIds)).Key;
+        var local = hasBuiltIn ? null : LocalDrivers.FirstOrDefault(d => d.HardwareIds.Overlaps(device.HardwareIds));
+        var installedFile = hasBuiltIn ? null
+            : entry?.File ?? Loaded.FirstOrDefault(kv => kv.Value.HardwareIds.Overlaps(device.HardwareIds)).Key;
         var driver = local ?? (installedFile != null ? Loaded.GetValueOrDefault(installedFile) : null);
         if (driver != null)
         {

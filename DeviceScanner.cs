@@ -167,7 +167,7 @@ public static class DeviceScanner
 
     private static void AddMonsGeekInfo(List<DeviceInfo> devices)
     {
-        var row = devices.FirstOrDefault(d => d.HardwareIds.Contains("VID_3151&PID_502D"));
+        var row = devices.FirstOrDefault(d => d.HardwareIds.Contains(MonsGeekKeyboard.HardwareId));
         if (row == null)
             return;
 

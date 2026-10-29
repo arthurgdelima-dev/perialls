@@ -14,7 +14,8 @@ public static class DriverRunner
     {
         var data = driver.Build(control, values);
 
-        var targets = driver.HardwareIds.Where(device.HardwareIds.Contains).ToList();
+        // Aparelhos com driver embutido nunca recebem comandos de um driver JSON.
+        var targets = driver.HardwareIds.Where(id => device.HardwareIds.Contains(id) && !DriverCatalog.BuiltInDevices.Contains(id)).ToList();
         if (targets.Count == 0)
             throw new DriverException("este aparelho não está na lista do driver");
 

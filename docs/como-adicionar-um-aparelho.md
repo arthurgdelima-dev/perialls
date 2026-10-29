@@ -12,6 +12,24 @@ e topa descobrir como ele funciona. Não precisa saber C#: um driver é só um a
   versão e o hash SHA-256. O app baixa o índice do GitHub, e no cartão do aparelho aparece o ícone
   ⬇ **Baixar driver**. Se o arquivo baixado não tiver o mesmo hash do índice, o app recusa.
 
+### Drivers embutidos têm prioridade
+
+Alguns aparelhos têm driver escrito direto no código do app, porque precisam de algo que um JSON não
+faz:
+
+| Aparelho | Por que é embutido |
+|---|---|
+| Akko/MonsGeek (`VID_3151&PID_502D`) | Vários modelos usam o mesmo PID. O app pergunta ao teclado qual modelo ele é (ID `2304` = FUN60 PRO) antes de mostrar os controles. |
+| Logitech (fabricante `046D`, todos os aparelhos) | Usa o protocolo HID++, em que os números dos comandos mudam de um aparelho para outro. Por isso não dá para bloquear a atualização de firmware por byte. |
+
+O driver embutido sempre ganha. Drivers JSON para esses VID/PID são **ignorados** (não aparece ícone de
+download, nem um driver na pasta `local` é usado) e o app nunca envia comandos JSON para eles. Um
+driver JSON da Logitech é recusado na validação. A lista de aparelhos embutidos fica em
+`BuiltInDevices`, no arquivo `DriverCatalog.cs`.
+
+Quer melhorar um desses? Mande o Pull Request no código C# (`MonsGeekKeyboard.cs`, `LogitechHidpp.cs`),
+e não um JSON.
+
 ## 1. Descubra o código USB (VID/PID)
 
 O jeito mais fácil: no Perialls, passe o mouse no ícone ➕ do cartão e clique. O pedido de suporte que

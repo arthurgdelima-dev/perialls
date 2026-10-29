@@ -14,6 +14,7 @@ public static class MonsGeekKeyboard
 {
     private const int Vid = 0x3151;
     private const int Pid = 0x502D;
+    public const string HardwareId = "VID_3151&PID_502D";
 
     // Vários teclados usam esse mesmo PID, então o modelo é confirmado pelo ID que o próprio teclado informa.
     private static readonly Dictionary<int, string> KnownModels = new()
