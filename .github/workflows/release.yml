@@ -1,4 +1,4 @@
-# Gera os executáveis e cria a Release no GitHub quando uma tag v* é enviada:
+# Gera os pacotes e cria a Release no GitHub quando uma tag v* é enviada:
 #   git tag v0.2.0
 #   git push --tags
 name: Release
@@ -10,6 +10,16 @@ on:
 permissions:
   contents: write # para criar a Release
 
+# O OpenRGB vai junto, numa versão fixa. Se o arquivo baixado não tiver este hash, a release falha.
+env:
+  OPENRGB_VERSION: "1.1"
+  OPENRGB_WINDOWS_URL: https://codeberg.org/OpenRGB/OpenRGB/releases/download/release_1.1/OpenRGB_1.1_Windows_64_8e16de2.zip
+  OPENRGB_WINDOWS_SHA256: 63291726c6fc84eb479ef2ee752e97e1187f6ce9c49fd27eee40ded588a8172a
+  OPENRGB_LINUX_URL: https://codeberg.org/OpenRGB/OpenRGB/releases/download/release_1.1/OpenRGB_1.1_x86_64_8e16de2.AppImage
+  OPENRGB_LINUX_SHA256: d556c2273b0ef863dbee7ffdb438304b382add5d685c93c60758b42de3b0268d
+  OPENRGB_SOURCE_URL: https://codeberg.org/OpenRGB/OpenRGB/archive/release_1.1.tar.gz
+  OPENRGB_SOURCE_SHA256: 8b919ad446de7f0415e2271a1881f94cd4f14e384a3c59acfcb3f540125f0107
+
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -20,19 +30,48 @@ jobs:
         with:
           dotnet-version: "8.0.x"
 
+      - name: Baixar o OpenRGB e conferir o hash
+        run: |
+          mkdir downloads
+          curl -fsSL -o downloads/openrgb-windows.zip "$OPENRGB_WINDOWS_URL"
+          curl -fsSL -o downloads/openrgb-linux.AppImage "$OPENRGB_LINUX_URL"
+          curl -fsSL -o "downloads/OpenRGB-$OPENRGB_VERSION-source.tar.gz" "$OPENRGB_SOURCE_URL"
+          cd downloads
+          echo "$OPENRGB_WINDOWS_SHA256  openrgb-windows.zip" | sha256sum -c -
+          echo "$OPENRGB_LINUX_SHA256  openrgb-linux.AppImage" | sha256sum -c -
+          echo "$OPENRGB_SOURCE_SHA256  OpenRGB-$OPENRGB_VERSION-source.tar.gz" | sha256sum -c -
+
       # Os dois saem do Linux mesmo: o .NET gera o .exe do Windows de qualquer sistema.
-      - name: Gerar os executáveis
+      - name: Gerar os pacotes
         run: |
           version="${GITHUB_REF_NAME#v}"
           dotnet publish Perialls.csproj -p:PublishProfile=win-x64 -p:Version="$version"
           dotnet publish Perialls.csproj -p:PublishProfile=linux-x64 -p:Version="$version"
           mkdir dist
-          cp publish/Perialls.exe dist/Perialls-win-x64.exe
-          cp publish/linux/Perialls dist/Perialls-linux-x64
-          # O .tar.gz guarda a permissão de execução (um arquivo solto baixado pelo navegador perde).
-          chmod +x dist/Perialls-linux-x64
+
+          # Windows: Perialls.exe + pasta openrgb (o conteúdo do zip oficial), tudo num .zip.
+          win=dist/Perialls-win-x64
+          mkdir -p "$win/openrgb" downloads/windows
+          cp publish/Perialls.exe "$win/"
+          unzip -q downloads/openrgb-windows.zip -d downloads/windows
+          cp -r "downloads/windows/OpenRGB Windows 64-bit/." "$win/openrgb/"
+          cp openrgb/LICENSE openrgb/SOURCE.md "$win/openrgb/"
+          (cd dist && zip -qr Perialls-win-x64.zip Perialls-win-x64)
+
+          # Linux: Perialls + pasta openrgb (o AppImage extraído, para não precisar do FUSE), num .tar.gz,
+          # que guarda a permissão de execução.
+          lin=dist/Perialls-linux-x64
+          mkdir -p "$lin"
+          cp publish/linux/Perialls "$lin/Perialls"
+          chmod +x "$lin/Perialls" downloads/openrgb-linux.AppImage
+          (cd downloads && ./openrgb-linux.AppImage --appimage-extract > /dev/null)
+          mv downloads/squashfs-root "$lin/openrgb"
+          cp openrgb/LICENSE openrgb/SOURCE.md "$lin/openrgb/"
           tar -czf dist/Perialls-linux-x64.tar.gz -C dist Perialls-linux-x64
-          cd dist && sha256sum Perialls-win-x64.exe Perialls-linux-x64.tar.gz > SHA256SUMS.txt
+
+          # O código-fonte do OpenRGB vai na mesma Release (pedido da licença GPL).
+          cp "downloads/OpenRGB-$OPENRGB_VERSION-source.tar.gz" dist/
+          cd dist && sha256sum Perialls-win-x64.zip Perialls-linux-x64.tar.gz "OpenRGB-$OPENRGB_VERSION-source.tar.gz" > SHA256SUMS.txt
 
       # As notas saem sozinhas, a partir dos commits e PRs desde a última versão.
       - name: Criar a Release
@@ -40,6 +79,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "$GITHUB_REF_NAME" \
-            dist/Perialls-win-x64.exe dist/Perialls-linux-x64.tar.gz dist/SHA256SUMS.txt \
+            dist/Perialls-win-x64.zip dist/Perialls-linux-x64.tar.gz \
+            "dist/OpenRGB-$OPENRGB_VERSION-source.tar.gz" dist/SHA256SUMS.txt \
             --title "Perialls ${GITHUB_REF_NAME#v}" \
             --generate-notes

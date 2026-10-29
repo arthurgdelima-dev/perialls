@@ -28,13 +28,15 @@ Não substitui os apps das marcas (G Hub, Synapse etc.). É só uma tela simples
 ## Como usar
 
 1. **[Baixar a última versão](https://github.com/arthurgdelima-dev/perialls/releases/latest)** e abrir.
-   Não precisa instalar nada.
-   - **Windows:** `Perialls-win-x64.exe`.
+   Não precisa instalar nada, nem o OpenRGB: ele já vem junto, na pasta `openrgb`.
+   - **Windows:** `Perialls-win-x64.zip`. Extraia **tudo** (botão direito → *Extrair tudo*) e abra o
+     `Perialls.exe`. Ele precisa da pasta `openrgb` ao lado.
    - **Linux:** `Perialls-linux-x64.tar.gz`. Extraia e abra:
      ```
      tar -xzf Perialls-linux-x64.tar.gz
-     chmod +x Perialls-linux-x64   # o .tar.gz já guarda a permissão; só precisa se ela se perder
-     ./Perialls-linux-x64
+     cd Perialls-linux-x64
+     chmod +x Perialls   # o .tar.gz já guarda a permissão; só precisa se ela se perder
+     ./Perialls
      ```
    - `SHA256SUMS.txt` traz o hash de cada arquivo, se você quiser conferir o download.
 
@@ -51,9 +53,17 @@ Não substitui os apps das marcas (G Hub, Synapse etc.). É só uma tela simples
    (Ou, com o repositório baixado: `sudo cp linux/70-perialls.rules /etc/udev/rules.d/`.)
    Depois tire e ligue o aparelho de novo. Sem a regra, eles aparecem na lista, mas sem bateria, DPI e
    iluminação (o rodapé do app avisa).
-3. **Para controlar RGB:** instale o [OpenRGB](https://openrgb.org) e deixe ele aberto com o
-   **SDK Server** ligado (aba *SDK Server* → *Start Server*). Se o OpenRGB estiver instalado, o
-   Perialls mostra um botão na barra lateral para abrir ele já com o servidor ligado.
+3. **RGB:** funciona sozinho, com o [OpenRGB](https://openrgb.org) que vem junto. Ele só é ligado
+   quando você escolhe uma cor ou usa *Sincronizar RGB* (o rodapé mostra "Ligando o RGB..." por alguns
+   segundos, enquanto ele procura os aparelhos). Ele roda escondido, só como servidor, sem aplicar
+   nenhum perfil, fica aberto enquanto o Perialls estiver aberto e fecha junto com ele. Se você já tiver
+   um OpenRGB aberto com o *SDK Server* ligado, o Perialls usa o seu.
+   - **Linux:** o OpenRGB precisa de uma regra do udev para abrir os aparelhos USB. Se faltar, o rodapé
+     mostra o comando exato. Memórias RAM e algumas placas-mãe usam i2c; para elas, ligue também o
+     módulo: `echo i2c-dev | sudo tee /etc/modules-load.d/i2c-dev.conf && sudo modprobe i2c-dev`.
+   - **Windows:** memórias RAM e algumas placas-mãe mais antigas (as que usam SMBus) ainda não
+     funcionam, porque o OpenRGB precisaria rodar como administrador. Aparelhos USB, como a maioria
+     das placas-mãe atuais (ex.: MSI Mystic Light), fans, fitas e periféricos, funcionam normalmente.
 4. Clique em **Atualizar** sempre que conectar ou desconectar um aparelho. O app não fica
    verificando sozinho.
 
@@ -85,7 +95,6 @@ No canto de cada cartão aparece um ícone pequeno:
 | ⬇ | Existe um driver para o aparelho. Clique para baixar: as funções aparecem na hora. |
 | ⟳ | Há uma versão nova do driver. |
 | ✓ | Driver instalado. |
-| Ventoinha | O [OpenRGB](https://openrgb.org) controla o RGB desse aparelho. Clique para abrir o site. |
 | ➕ | Ainda não há suporte. Clique para abrir um pedido no GitHub, já preenchido com os dados do aparelho. |
 
 Os drivers são só arquivos JSON que descrevem os comandos. O app nunca baixa programas, confere o hash
@@ -131,8 +140,9 @@ git tag v0.2.0
 git push --tags
 ```
 
-Em alguns minutos aparece a Release com o `.exe` do Windows, o `.tar.gz` do Linux, os hashes e as
-notas geradas a partir dos commits. Para acompanhar, veja a aba *Actions* do repositório.
+Em alguns minutos aparece a Release com o `.zip` do Windows e o `.tar.gz` do Linux (os dois já com o
+OpenRGB, numa versão fixa e com o hash conferido), o código-fonte do OpenRGB, os hashes e as notas
+geradas a partir dos commits. Para acompanhar, veja a aba *Actions* do repositório.
 
 ## Fotos dos aparelhos
 
@@ -146,12 +156,20 @@ de novo no próximo Atualizar.
 O código USB (VID/PID) aparece no Gerenciador de Dispositivos: *Propriedades* → *Detalhes* →
 *IDs de hardware*. No Linux, no comando `lsusb` (ex.: `ID 046d:4093` vira `VID_046D&PID_4093`).
 
+## OpenRGB incluído
+
+A pasta `openrgb` traz o [OpenRGB](https://openrgb.org) 1.1 sem alterações. Ele é um programa separado,
+licenciado pela **GNU GPL versão 2**; o Perialls só conversa com ele pela rede local, e o código dos dois
+não é misturado. A licença dele está em `openrgb/LICENSE`, e o código-fonte da versão exata vai anexado
+em cada Release (`OpenRGB-1.1-source.tar.gz`). Mais detalhes, e a oferta do código-fonte das bibliotecas
+que ele usa, em [openrgb/SOURCE.md](openrgb/SOURCE.md).
+
 ## Bibliotecas
 
 - [Avalonia](https://avaloniaui.net): a tela, a mesma no Windows e no Linux.
 - [HidSharp](https://www.zer7.com/software/hidsharp): conversa com aparelhos HID (Logitech e Akko).
 - [OpenRGB.NET](https://github.com/diogotr7/OpenRGB.NET): cliente do SDK do OpenRGB pela rede.
-  O OpenRGB em si é um programa separado (GPL) e não vem junto com o Perialls.
+  O OpenRGB em si é um programa separado (GPL), que vem junto na pasta `openrgb` (veja acima).
 - System.Management: lista os aparelhos pelo Windows (WMI). No Linux a lista vem de `/sys` e o
   Bluetooth do BlueZ (pelo `busctl`, que vem com o systemd).
 
