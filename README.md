@@ -34,9 +34,10 @@ Não substitui os apps das marcas (G Hub, Synapse etc.). É só uma tela simples
 2. **Linux, para Logitech e Akko/MonsGeek:** o Linux só deixa o root falar direto com esses aparelhos.
    Instale a regra do udev uma vez (ela libera só para quem está usando o PC):
    ```
-   sudo cp linux/70-perialls.rules /etc/udev/rules.d/
+   sudo curl -L -o /etc/udev/rules.d/70-perialls.rules https://raw.githubusercontent.com/arthurgdelima-dev/perialls/main/linux/70-perialls.rules
    sudo udevadm control --reload && sudo udevadm trigger
    ```
+   (Ou, com o repositório baixado: `sudo cp linux/70-perialls.rules /etc/udev/rules.d/`.)
    Depois tire e ligue o aparelho de novo. Sem a regra, eles aparecem na lista, mas sem bateria, DPI e
    iluminação (o rodapé do app avisa).
 3. **Para controlar RGB:** instale o [OpenRGB](https://openrgb.org) e deixe ele aberto com o
