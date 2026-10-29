@@ -51,6 +51,10 @@ public sealed class Driver
     {
         // Akko/MonsGeek: veja "Comandos proibidos" em docs/protocolo-monsgeek.md.
         [0x3151] = [0x01, 0xAC, 0x1C, 0x1E, 0x0A, 0x10, 0x0B],
+        // Mouses Compx (ATK, VXE, MAD R): parear, gravar em qualquer endereço da memória, reset de fábrica,
+        // firmware, sair do pareamento. Veja docs/protocolo-compx.md.
+        [0x373B] = [0x05, 0x07, 0x09, 0x0D, 0x13],
+        [0x3554] = [0x05, 0x07, 0x09, 0x0D, 0x13],
     };
 
     // Fabricantes que o app já controla pelo próprio código e que não aceitam driver JSON.

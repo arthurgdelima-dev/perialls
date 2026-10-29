@@ -482,11 +482,17 @@ public partial class MainWindow : Window
     {
         try
         {
-            await Task.Run(() => LogitechHidpp.SetDpi(device.LogitechProductId, device.LogitechIndex, dpi));
+            var saved = true;
+            if (device.Compx is { } compx)
+                dpi = await Task.Run(() => CompxMouse.SetDpi(compx, dpi));
+            else
+                saved = await Task.Run(() => LogitechHidpp.SetDpi(device.LogitechProductId, device.LogitechIndex, dpi));
             device.Dpi = dpi;
+            device.DpiSaves = saved;
             UserSettings.Current.Remember(device, s => s.Dpi = dpi);
             ShowDevices(); // redesenha os cartões com o DPI novo
-            StatusText.Text = Lang.T("status.forDevice", Lang.T("status.valueSet", "DPI", dpi), device.Name);
+            StatusText.Text = Lang.T("status.forDevice",
+                Lang.T(saved ? "status.dpiSaved" : "status.valueSet", "DPI", dpi), device.Name);
         }
         catch (Exception ex)
         {
@@ -538,7 +544,10 @@ public partial class MainWindow : Window
             return;
         try
         {
-            await Task.Run(() => MonsGeekKeyboard.SetReportRate(hz));
+            if (device.Compx is { } compx)
+                await Task.Run(() => CompxMouse.SetReportRate(compx, hz));
+            else
+                await Task.Run(() => MonsGeekKeyboard.SetReportRate(hz));
             device.ReportRateHz = hz;
             UserSettings.Current.Remember(device, s => s.ReportRateHz = hz);
             ShowDevices();

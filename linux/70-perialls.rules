@@ -11,3 +11,7 @@ KERNEL=="hidraw*", KERNELS=="*:046D:*", TAG+="uaccess"
 
 # Akko/MonsGeek (iluminação e Hz)
 KERNEL=="hidraw*", KERNELS=="*:3151:*", TAG+="uaccess"
+
+# Mouses com chip Compx: ATK, VXE, MAD R (DPI, Hz e bateria)
+KERNEL=="hidraw*", KERNELS=="*:373B:*", TAG+="uaccess"
+KERNEL=="hidraw*", KERNELS=="*:3554:*", TAG+="uaccess"

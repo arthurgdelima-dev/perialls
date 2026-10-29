@@ -20,7 +20,8 @@ Não substitui os apps das marcas (G Hub, Synapse etc.). É só uma tela simples
 | Lista de aparelhos e status | Qualquer aparelho USB, HID, Bluetooth ou de áudio |
 | Bateria | Aparelhos Bluetooth que informam bateria, controles (XInput no Windows; os que o kernel conhece no Linux) e Logitech (HID++) |
 | Cor RGB | Tudo que o [OpenRGB](https://openrgb.org) reconhece (placa-mãe, fans, fitas, periféricos) |
-| DPI | Mouses Logitech com HID++ |
+| DPI | Mouses Logitech com HID++ (fica gravado no mouse quando ele tem perfis na memória) e mouses ATK, VXE e MAD R (chip Compx, fica gravado no mouse) |
+| Hz | Mouses ATK, VXE e MAD R (chip Compx) e teclado Akko/MonsGeek FUN60 PRO |
 | Efeito, cor, brilho, velocidade e Hz | Teclado Akko/MonsGeek FUN60 PRO |
 | Funções extras por driver | Aparelhos com driver em [`drivers/`](drivers), baixado pelo próprio app |
 | Sincronizar RGB | A mesma cor em todos os aparelhos com RGB, com um clique |

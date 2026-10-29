@@ -56,6 +56,9 @@ public static class DeviceScanner
         // 6) Akko/MonsGeek: iluminação e Hz pelo protocolo do driver oficial.
         AddMonsGeekInfo(devices);
 
+        // 7) Mouses Compx (ATK, VXE, MAD R): DPI, Hz e bateria pelo protocolo do driver oficial.
+        AddCompxInfo(devices);
+
         // No Linux, sem a regra do udev o app não pode abrir os aparelhos HID (Logitech e Akko).
         var hidBlocked = OperatingSystem.IsLinux() && LinuxDevices.HidAccessDenied();
 
@@ -165,6 +168,7 @@ public static class DeviceScanner
         row.Battery = device.Battery;
         row.Dpi = device.Dpi;
         row.DpiPresets = device.DpiPresets;
+        row.DpiSaves = device.DpiSaves;
         row.LogitechProductId = productId;
         row.LogitechIndex = device.Index;
     }
@@ -190,6 +194,45 @@ public static class DeviceScanner
         row.Name = $"Akko/MonsGeek {state.Model}";
         row.KeyboardLighting = state.Lighting;
         row.ReportRateHz = state.ReportRateHz;
+        row.ReportRates = MonsGeekKeyboard.ReportRates;
+    }
+
+    private static void AddCompxInfo(List<DeviceInfo> devices)
+    {
+        foreach (var row in devices)
+        {
+            var id = row.HardwareIds.FirstOrDefault(CompxMouse.HardwareIds.Contains);
+            if (id == null)
+                continue;
+
+            CompxMouse.State? state;
+            try
+            {
+                state = CompxMouse.Query(Convert.ToInt32(id[4..8], 16), Convert.ToInt32(id[^4..], 16));
+            }
+            catch
+            {
+                continue; // mouse ocupado ou respondeu errado: o cartão aparece sem os controles
+            }
+            if (state == null)
+                continue; // não fala esse protocolo
+
+            row.Compx = state.Target;
+            (row.Kind, row.Icon, row.SortOrder) = (Lang.T("kind.mouse"), "mouse", 1);
+            if (state.MouseOff)
+            {
+                row.Status = Lang.T("device.receiverOff");
+                continue;
+            }
+            if (state.Name is { Length: > 0 } name && name != "Mouse")
+                row.Name = name;
+            row.Battery = state.Battery;
+            row.Dpi = state.Dpi;
+            row.DpiPresets = state.DpiPresets;
+            row.DpiSaves = state.Dpi != null; // o DPI é gravado na memória do mouse
+            row.ReportRateHz = state.ReportRateHz;
+            row.ReportRates = state.Target.ReportRates;
+        }
     }
 
     private static IEnumerable<DeviceInfo> ToDevices(PartGroup group)

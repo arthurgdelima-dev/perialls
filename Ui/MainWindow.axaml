@@ -261,7 +261,7 @@
                                                 <Run Text="{local:T card.battery}"/><Run Text=" "/><Run Text="{Binding Battery}"/>
                                             </TextBlock>
 
-                                            <!-- Extras: cores (OpenRGB ou teclado Akko) e DPI (HID++) -->
+                                            <!-- Extras: cores (OpenRGB ou teclado Akko), DPI (Logitech ou Compx) e Hz -->
                                             <StackPanel Grid.Row="4" Margin="0,10,0,0">
                                                 <WrapPanel HorizontalAlignment="Center" IsVisible="{Binding HasRgb}">
                                                     <ItemsControl ItemsSource="{Binding Swatches}">
@@ -294,8 +294,8 @@
                                                     <TextBlock Classes="value" Margin="0,0,0,2">
                                                         <Run Text="{local:T control.dpi}"/><Run Text=" "/><Run Text="{Binding Dpi}" FontWeight="SemiBold"/>
                                                     </TextBlock>
-                                                    <!-- O DPI muda só na hora: o mouse volta ao dele quando é desligado -->
-                                                    <TextBlock Text="{local:T card.dpiNote}" FontSize="10" Foreground="#6A6A75"
+                                                    <!-- Sem perfis na memória do mouse, o DPI muda só na hora: ele volta ao dele quando é desligado -->
+                                                    <TextBlock Text="{local:T card.dpiNote}" IsVisible="{Binding !DpiSaves}" FontSize="10" Foreground="#6A6A75"
                                                                TextAlignment="Center" TextWrapping="Wrap" Margin="0,0,0,6"/>
                                                     <WrapPanel HorizontalAlignment="Center">
                                                         <ItemsControl ItemsSource="{Binding DpiChoices}">
@@ -318,7 +318,7 @@
                                                     </WrapPanel>
                                                 </StackPanel>
 
-                                                <!-- Teclado Akko/MonsGeek: efeito, brilho, velocidade e Hz -->
+                                                <!-- Teclado Akko/MonsGeek: efeito, brilho e velocidade -->
                                                 <StackPanel Margin="0,4,0,0" IsVisible="{Binding HasKeyboardLighting}">
                                                     <ComboBox ItemsSource="{x:Static local:MonsGeekKeyboard.Effects}"
                                                               DisplayMemberBinding="{Binding Name}"
@@ -361,7 +361,11 @@
                                                         </ItemsControl.ItemTemplate>
                                                     </ItemsControl>
 
-                                                    <TextBlock Classes="value" Margin="0,4,0,4">
+                                                </StackPanel>
+
+                                                <!-- Hz: teclado Akko/MonsGeek ou mouse Compx -->
+                                                <StackPanel IsVisible="{Binding HasReportRate}">
+                                                    <TextBlock Classes="value" Margin="0,8,0,4">
                                                         <Run Text="{local:T control.pollingRate}"/><Run Text=" "/><Run Text="{Binding ReportRateHz}" FontWeight="SemiBold"/><Run Text=" Hz"/>
                                                     </TextBlock>
                                                     <ItemsControl ItemsSource="{Binding ReportRateChoices}" HorizontalAlignment="Center">

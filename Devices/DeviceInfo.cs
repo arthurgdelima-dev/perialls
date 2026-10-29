@@ -45,14 +45,20 @@ public sealed class DeviceInfo : INotifyPropertyChanged
     public MonsGeekKeyboard.Effect? KeyboardEffect =>
         MonsGeekKeyboard.Effects.FirstOrDefault(e => e.Id == KeyboardLighting?.Effect);
     public int? ReportRateHz { get; set; }
+    public IReadOnlyList<int> ReportRates { get; set; } = []; // opções de Hz (Akko ou mouse Compx)
+    public bool HasReportRate => ReportRates.Count > 0;
 
     // DPI (só mouses Logitech com HID++, por enquanto). Para mudar, precisamos saber
     // em qual receptor (código USB) e em qual número dentro dele o mouse está.
     public int? Dpi { get; set; }
     public List<int> DpiPresets { get; set; } = [];
     public bool HasDpi => Dpi != null;
+    public bool DpiSaves { get; set; } // grava no perfil do mouse: continua depois de desligar
     public int LogitechProductId { get; set; }
     public byte LogitechIndex { get; set; }
+
+    // Mouses com chip Compx (ATK, VXE, MAD R): DPI e Hz pelo protocolo do driver oficial.
+    public CompxMouse.Target? Compx { get; set; }
 
     // Foto do aparelho, achada na internet e guardada no cache (DeviceImages). Sem foto, a tela mostra o ícone grande.
     public IImage? Photo
@@ -105,7 +111,7 @@ public sealed class DeviceInfo : INotifyPropertyChanged
     public IEnumerable<Choice> DpiChoices => DpiPresets.Select(d => new Choice(this, d, d == Dpi));
     public IEnumerable<Choice> BrightnessChoices => Levels.Select(l => new Choice(this, l, l == KeyboardLighting?.Brightness));
     public IEnumerable<Choice> SpeedChoices => Levels.Select(l => new Choice(this, l, l == KeyboardLighting?.Speed));
-    public IEnumerable<Choice> ReportRateChoices => MonsGeekKeyboard.ReportRates.Select(hz => new Choice(this, hz, hz == ReportRateHz));
+    public IEnumerable<Choice> ReportRateChoices => ReportRates.Select(hz => new Choice(this, hz, hz == ReportRateHz));
 
     // As mesmas cores no seletor de "Sincronizar RGB" (sem aparelho: vale para todos).
     public static IEnumerable<ColorChoice> SyncSwatches => SwatchColors.Select(hex => new ColorChoice(null, hex));

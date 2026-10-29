@@ -20,6 +20,7 @@ faz:
 | Aparelho | Por que é embutido |
 |---|---|
 | Akko/MonsGeek (`VID_3151&PID_502D`) | Vários modelos usam o mesmo PID. O app pergunta ao teclado qual modelo ele é (ID `2304` = FUN60 PRO) antes de mostrar os controles. |
+| Mouses ATK, VXE e MAD R (fabricantes `373B` e `3554`, chip Compx) | O comando de gravar escreve em qualquer endereço da memória do mouse, inclusive botões e macros. O código limita aos endereços de DPI e Hz, e o DPI depende do sensor que o mouse informa. Veja [`protocolo-compx.md`](protocolo-compx.md). |
 | Logitech (fabricante `046D`, todos os aparelhos) | Usa o protocolo HID++, em que os números dos comandos mudam de um aparelho para outro. Por isso não dá para bloquear a atualização de firmware por byte. |
 
 O driver embutido sempre ganha. Drivers JSON para esses VID/PID são **ignorados** (não aparece ícone de

@@ -212,7 +212,7 @@ public static class DriverCatalog
         device.OpenRgbSupported = device.HardwareIds.Any(_openRgbIds.Contains);
 
         // Aparelho com driver embutido: os drivers JSON dele são ignorados.
-        var hasBuiltIn = device.HardwareIds.Any(BuiltInDevices.Contains);
+        var hasBuiltIn = device.HardwareIds.Any(BuiltInDevices.Contains) || device.Compx != null;
         var entry = hasBuiltIn ? null : Index.Drivers.FirstOrDefault(e => e.Devices.Any(device.HardwareIds.Contains));
         device.DriverEntry = entry;
         device.Driver = null;
@@ -266,9 +266,9 @@ public static class DriverCatalog
             device.DriverAction = DriverAction.Installed;
             device.DriverTip = Lang.T("tip.installedNoVersion", driver.Name);
         }
-        else if (device.HasRgb || device.HasDpi || device.HasKeyboardLighting)
+        else if (device.HasRgb || device.HasDpi || device.HasKeyboardLighting || device.Compx != null)
         {
-            // Já tem funções pelo próprio app (Logitech, Akko, OpenRGB embutido): nada a oferecer.
+            // Já tem funções pelo próprio app (Logitech, Akko, Compx, OpenRGB embutido): nada a oferecer.
             device.DriverAction = DriverAction.None;
         }
         else if (device.HardwareIds.Count > 0)

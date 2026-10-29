@@ -265,14 +265,14 @@ public static class LinuxDevices
         return null;
     }
 
-    // Diz se há um aparelho Logitech ou Akko/MonsGeek que o app não tem permissão para abrir.
+    // Diz se há um aparelho Logitech, Akko/MonsGeek ou Compx que o app não tem permissão para abrir.
     // Por padrão só o root abre /dev/hidraw*; a regra do udev (linux/70-perialls.rules) libera.
     public static bool HidAccessDenied()
     {
         foreach (var dir in Directories("/sys/class/hidraw", "hidraw*"))
         {
             var hid = FindHid(RealPath(Path.Combine(dir, "device")));
-            if (hid?.VendorId is not ("046D" or "3151"))
+            if (hid?.VendorId is not ("046D" or "3151" or "373B" or "3554"))
                 continue;
             try
             {

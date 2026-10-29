@@ -20,7 +20,8 @@ It does not replace the brands' apps (G Hub, Synapse etc.). It is just a simple 
 | Device list and status | Any USB, HID, Bluetooth or audio device |
 | Battery | Bluetooth devices that report battery, controllers (XInput on Windows; the ones the kernel knows on Linux) and Logitech (HID++) |
 | RGB color | Everything [OpenRGB](https://openrgb.org) recognizes (motherboard, fans, strips, peripherals) |
-| DPI | Logitech mice with HID++ |
+| DPI | Logitech mice with HID++ (saved on the mouse when it has onboard profiles) and ATK, VXE and MAD R mice (Compx chip, saved on the mouse) |
+| Polling rate | ATK, VXE and MAD R mice (Compx chip) and the Akko/MonsGeek FUN60 PRO keyboard |
 | Effect, color, brightness, speed and polling rate | Akko/MonsGeek FUN60 PRO keyboard |
 | Extra features through drivers | Devices with a driver in [`drivers/`](drivers), downloaded by the app itself |
 | Sync RGB | The same color on every RGB device, in one click |

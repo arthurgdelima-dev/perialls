@@ -21,6 +21,7 @@ public static class LogitechHidpp
     private const ushort FeatureBatteryVoltage = 0x1001;
     private const ushort FeatureUnifiedBattery = 0x1004;
     private const ushort FeatureAdjustableDpi = 0x2201;
+    private const ushort FeatureOnboardProfiles = 0x8100;
 
     public sealed class Device
     {
@@ -31,6 +32,7 @@ public static class LogitechHidpp
         public string Battery { get; init; } = "—";
         public int? Dpi { get; init; }
         public List<int> DpiPresets { get; init; } = [];
+        public bool DpiSaves { get; init; } // o mouse tem perfis na memória dele: o DPI fica gravado
     }
 
     // Lê os aparelhos Logitech ligados a um receptor (ou o próprio aparelho, se for com fio).
@@ -58,14 +60,29 @@ public static class LogitechHidpp
         return devices;
     }
 
-    public static void SetDpi(int productId, byte index, int dpi)
+    // Muda o DPI na hora e, se o mouse tiver perfis na memória dele, grava também no perfil em uso,
+    // para continuar valendo depois de desligar. Retorna se ficou gravado no mouse.
+    public static bool SetDpi(int productId, byte index, int dpi)
     {
         using var channel = Channel.Open(productId)
             ?? throw new InvalidOperationException(Lang.T("error.disconnected"));
         var feature = channel.FindFeature(index, FeatureAdjustableDpi)
             ?? throw new InvalidOperationException(Lang.T("error.noDpi"));
+
+        // Grava antes de mudar na hora: alguns mouses recarregam o perfil depois de gravar.
+        bool saved;
+        try
+        {
+            saved = SaveDpiToProfile(channel, index, dpi);
+        }
+        catch
+        {
+            saved = false; // sem gravar, o DPI ainda muda na hora
+        }
+
         _ = channel.Request(index, feature, 3, 0, (byte)(dpi >> 8), (byte)dpi)
             ?? throw new InvalidOperationException(Lang.T("error.noReply"));
+        return saved;
     }
 
     // Receptores (Unifying, Lightspeed, Bolt) usam códigos 0xC5xx e guardam até 6 aparelhos.
@@ -107,6 +124,7 @@ public static class LogitechHidpp
             Battery = ReadBattery(channel, index),
             Dpi = dpi,
             DpiPresets = presets,
+            DpiSaves = dpi != null && OnboardSectorSize(channel, index) != null,
         };
     }
 
@@ -202,6 +220,158 @@ public static class LogitechHidpp
             : values.Count <= 7 ? values : common.Where(values.Contains).ToList();
 
         return ((current[1] << 8) | current[2], presets);
+    }
+
+    // Perfis onboard (recurso 0x8100): a memória flash do mouse, dividida em setores.
+    // O setor 0 é a lista de perfis: 4 bytes por perfil [setor (2), ligado, 0], terminando em FF FF.
+    // Os setores 0x01xx são os perfis de fábrica (só leitura); 0x0100 é a lista deles.
+    // Num perfil, o byte 1 é qual dos 5 DPIs o mouse usa ao ligar, e os bytes 3 a 12 são os 5 DPIs
+    // (2 bytes cada, o menor primeiro). Os 2 últimos bytes de todo setor são um CRC; setor com CRC
+    // errado o mouse ignora. Mesmo formato que o Solaar e o libratbag usam.
+    private const int ProfilesDirectory = 0x0000;
+    private const int RomDirectory = 0x0100;
+
+    // Tamanho dos setores, ou null se o mouse não tem perfis num formato que conhecemos.
+    private static int? OnboardSectorSize(Channel channel, byte index)
+    {
+        if (channel.FindFeature(index, FeatureOnboardProfiles) is not byte feature ||
+            channel.Request(index, feature, 0) is not byte[] info)
+            return null;
+        // [modelo da memória, formato do perfil, formato de macro, perfis, ..., setores, tamanho (2)]
+        var size = (info[7] << 8) | info[8];
+        return info[0] == 1 && info[1] is >= 1 and <= 5 && size >= 32 ? size : null;
+    }
+
+    private static bool SaveDpiToProfile(Channel channel, byte index, int dpi)
+    {
+        if (OnboardSectorSize(channel, index) is not int size)
+            return false;
+        var feature = channel.FindFeature(index, FeatureOnboardProfiles)!.Value;
+
+        // Mouse que nunca foi configurado só tem os perfis de fábrica: copiamos para a área gravável.
+        var directory = ReadSector(channel, index, feature, ProfilesDirectory, size);
+        var profiles = IsValid(directory) ? ProfileEntries(directory) : [];
+        if (profiles.Count == 0)
+            profiles = CopyRomProfiles(channel, index, feature, size);
+        if (profiles.Count == 0)
+            return false;
+
+        // O perfil em uso (pelo número do setor). Se for um de fábrica, o equivalente que copiamos.
+        var reply = channel.Request(index, feature, 4);
+        var current = reply == null ? 0 : (reply[0] << 8) | reply[1];
+        if (current >= RomDirectory)
+            current &= 0xFF;
+        if (!profiles.Contains(current))
+            current = profiles[0];
+
+        var profile = ReadSector(channel, index, feature, current, size);
+        if (!IsValid(profile))
+            return false;
+
+        var slot = profile[1] < 5 ? profile[1] : 0;
+        var offset = 3 + slot * 2;
+        if (profile[offset] == (byte)dpi && profile[offset + 1] == (byte)(dpi >> 8))
+            return true; // já está gravado: não gasta a memória do mouse à toa
+        profile[offset] = (byte)dpi;
+        profile[offset + 1] = (byte)(dpi >> 8);
+        WriteSector(channel, index, feature, current, profile);
+
+        // Garante que o perfil em uso é o que acabamos de gravar (importa quando estava num de fábrica).
+        if (reply == null || ((reply[0] << 8) | reply[1]) != current)
+            channel.Request(index, feature, 3, (byte)(current >> 8), (byte)current);
+        return true;
+    }
+
+    // Copia os perfis de fábrica (0x0101, 0x0102...) para os setores graváveis (0x0001, 0x0002...)
+    // e escreve a lista nova. Retorna os setores copiados.
+    private static List<int> CopyRomProfiles(Channel channel, byte index, byte feature, int size)
+    {
+        var romDirectory = ReadSector(channel, index, feature, RomDirectory, size);
+        var directory = Enumerable.Repeat((byte)0xFF, size).ToArray();
+        var copied = new List<int>();
+        for (int i = 0; i + 3 < size - 2; i += 4)
+        {
+            var romSector = (romDirectory[i] << 8) | romDirectory[i + 1];
+            if (romSector == 0xFFFF || romSector == 0)
+                break;
+            var profile = ReadSector(channel, index, feature, romSector, size);
+            if (!IsValid(profile))
+                return [];
+            var sector = romSector & 0xFF;
+            WriteSector(channel, index, feature, sector, profile);
+            directory[i] = (byte)(sector >> 8);
+            directory[i + 1] = (byte)sector;
+            directory[i + 2] = romDirectory[i + 2]; // ligado
+            directory[i + 3] = 0;
+            copied.Add(sector);
+        }
+        if (copied.Count == 0)
+            return [];
+        var end = copied.Count * 4;
+        directory[end + 2] = directory[end + 3] = 0; // FF FF 00 00 depois do último
+        WriteSector(channel, index, feature, ProfilesDirectory, directory);
+        return copied;
+    }
+
+    private static List<int> ProfileEntries(byte[] directory)
+    {
+        var sectors = new List<int>();
+        for (int i = 0; i + 3 < directory.Length - 2; i += 4)
+        {
+            var sector = (directory[i] << 8) | directory[i + 1];
+            if (sector == 0xFFFF || sector == 0)
+                break;
+            if (directory[i + 2] != 0)
+                sectors.Add(sector);
+        }
+        return sectors;
+    }
+
+    // Lê 16 bytes por vez. O mouse recusa ler além do fim, então o último pedaço é lido mais para trás.
+    private static byte[] ReadSector(Channel channel, byte index, byte feature, int sector, int size)
+    {
+        var data = new byte[size];
+        for (int offset = 0; offset < size; offset += 16)
+        {
+            var from = Math.Min(offset, size - 16);
+            var chunk = channel.Request(index, feature, 5, (byte)(sector >> 8), (byte)sector, (byte)(from >> 8), (byte)from)
+                ?? throw new InvalidOperationException(Lang.T("error.noReply"));
+            Array.Copy(chunk, offset - from, data, offset, Math.Min(16, size - offset));
+        }
+        return data;
+    }
+
+    // Escreve o setor inteiro com o CRC novo: começa (6), manda 16 bytes por vez (7) e termina (8).
+    private static void WriteSector(Channel channel, byte index, byte feature, int sector, byte[] data)
+    {
+        var size = data.Length;
+        var crc = Crc16(data.AsSpan(0, size - 2));
+        data[size - 2] = (byte)(crc >> 8);
+        data[size - 1] = (byte)crc;
+
+        _ = channel.Request(index, feature, 6, (byte)(sector >> 8), (byte)sector, 0, 0, (byte)(size >> 8), (byte)size)
+            ?? throw new InvalidOperationException(Lang.T("error.noReply"));
+        for (int offset = 0; offset < size; offset += 16)
+            _ = channel.Request(index, feature, 7, data[offset..Math.Min(offset + 16, size)])
+                ?? throw new InvalidOperationException(Lang.T("error.noReply"));
+        _ = channel.Request(index, feature, 8)
+            ?? throw new InvalidOperationException(Lang.T("error.noReply"));
+    }
+
+    private static bool IsValid(byte[] sector) =>
+        Crc16(sector.AsSpan(0, sector.Length - 2)) == ((sector[^2] << 8) | sector[^1]);
+
+    // CRC-16/CCITT (polinômio 0x1021, começa em 0xFFFF).
+    private static ushort Crc16(ReadOnlySpan<byte> data)
+    {
+        ushort crc = 0xFFFF;
+        foreach (var b in data)
+        {
+            crc ^= (ushort)(b << 8);
+            for (int bit = 0; bit < 8; bit++)
+                crc = (crc & 0x8000) != 0 ? (ushort)((crc << 1) ^ 0x1021) : (ushort)(crc << 1);
+        }
+        return crc;
     }
 
     // A conexão com o receptor: um canal "longo" (20 bytes) para mandar e receber,
