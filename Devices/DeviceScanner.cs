@@ -79,7 +79,7 @@ public static class DeviceScanner
             var row = hardwareId == null ? null : devices.FirstOrDefault(d => d.HardwareIds.Contains(hardwareId));
             if (row == null)
             {
-                row = new DeviceInfo { Name = rgb.Name, Status = "Conectado" };
+                row = new DeviceInfo { Name = rgb.Name, Status = Lang.T("device.connected") };
                 if (hardwareId != null)
                     row.HardwareIds.Add(hardwareId);
                 devices.Add(row);
@@ -89,20 +89,20 @@ public static class DeviceScanner
             if (rgb.Colors.Length > 0)
                 row.ReportedColor = $"#{rgb.Colors[0].R:X2}{rgb.Colors[0].G:X2}{rgb.Colors[0].B:X2}";
 
-            // Aparelhos que estavam como "Outro" ganham o nome e o tipo que o OpenRGB conhece.
-            if (row.Kind is "" or "Outro")
+            // Aparelhos sem tipo conhecido ("Outro", ícone genérico) ganham o nome e o tipo que o OpenRGB conhece.
+            if (row.Kind == "" || row.Icon == "device")
             {
                 row.Name = rgb.Name;
                 (row.Kind, row.Icon, row.SortOrder) = rgb.Type switch
                 {
-                    OpenRGB.NET.DeviceType.Motherboard => ("Placa-mãe · fans e RGB", "fan", 3),
-                    OpenRGB.NET.DeviceType.Cooler => ("Cooler · RGB", "fan", 3),
-                    OpenRGB.NET.DeviceType.Ledstrip => ("Fita de LED", "fan", 3),
-                    OpenRGB.NET.DeviceType.Keyboard => ("Teclado", "keyboard", 2),
-                    OpenRGB.NET.DeviceType.Mouse => ("Mouse", "mouse", 1),
-                    OpenRGB.NET.DeviceType.Headset => ("Headset", "headset", 5),
-                    OpenRGB.NET.DeviceType.Gamepad => ("Controle", "controller", 0),
-                    _ => ("RGB", "device", 4),
+                    OpenRGB.NET.DeviceType.Motherboard => (Lang.T("kind.motherboard"), "fan", 3),
+                    OpenRGB.NET.DeviceType.Cooler => (Lang.T("kind.cooler"), "fan", 3),
+                    OpenRGB.NET.DeviceType.Ledstrip => (Lang.T("kind.ledstrip"), "fan", 3),
+                    OpenRGB.NET.DeviceType.Keyboard => (Lang.T("kind.keyboard"), "keyboard", 2),
+                    OpenRGB.NET.DeviceType.Mouse => (Lang.T("kind.mouse"), "mouse", 1),
+                    OpenRGB.NET.DeviceType.Headset => (Lang.T("kind.headset"), "headset", 5),
+                    OpenRGB.NET.DeviceType.Gamepad => (Lang.T("kind.controller"), "controller", 0),
+                    _ => (Lang.T("kind.rgb"), "device", 4),
                 };
             }
         }
@@ -127,13 +127,13 @@ public static class DeviceScanner
 
             if (found.Count == 0)
             {
-                row.Status = "Receptor conectado · aparelho desligado";
+                row.Status = Lang.T("device.receiverOff");
                 continue;
             }
 
             for (int i = 0; i < found.Count; i++)
             {
-                var target = i == 0 ? row : new DeviceInfo { Status = "Conectado" };
+                var target = i == 0 ? row : new DeviceInfo { Status = Lang.T("device.connected") };
                 ApplyLogitech(target, found[i], productId);
                 if (i > 0)
                     devices.Add(target);
@@ -150,10 +150,10 @@ public static class DeviceScanner
 
         (string Kind, string Icon, int Order)? kind = device.Type switch
         {
-            0 => ("Teclado", "keyboard", 2),
-            3 or 4 or 5 => ("Mouse", "mouse", 1),
-            8 => ("Headset", "headset", 5),
-            12 => ("Controle", "controller", 0),
+            0 => (Lang.T("kind.keyboard"), "keyboard", 2),
+            3 or 4 or 5 => (Lang.T("kind.mouse"), "mouse", 1),
+            8 => (Lang.T("kind.headset"), "headset", 5),
+            12 => (Lang.T("kind.controller"), "controller", 0),
             _ => null,
         };
         if (kind != null)
@@ -202,7 +202,7 @@ public static class DeviceScanner
             yield return new DeviceInfo
             {
                 Name = audio.Name,
-                Kind = "Áudio",
+                Kind = Lang.T("kind.audio"),
                 Icon = "headset",
                 Status = status,
                 Battery = battery,
@@ -236,7 +236,7 @@ public static class DeviceScanner
     private static (string Kind, string Icon, int Order) DescribeKind(List<Part> parts, string name)
     {
         if (parts.Any(p => p.Class == PartClass.Controller))
-            return ("Controle", "controller", 0);
+            return (Lang.T("kind.controller"), "controller", 0);
 
         var keyboards = parts.Count(p => p.Class == PartClass.Keyboard);
         var mice = parts.Count(p => p.Class == PartClass.Mouse);
@@ -245,17 +245,17 @@ public static class DeviceScanner
         {
             var isKeyboard = Regex.IsMatch(name, @"keyboard|teclado|\bkb", RegexOptions.IgnoreCase)
                 || (!Regex.IsMatch(name, "mouse", RegexOptions.IgnoreCase) && keyboards > mice);
-            return isKeyboard ? ("Teclado", "keyboard", 2) : ("Mouse", "mouse", 1);
+            return isKeyboard ? (Lang.T("kind.keyboard"), "keyboard", 2) : (Lang.T("kind.mouse"), "mouse", 1);
         }
 
         // Aparelho Bluetooth desconectado (ou fone): o tipo vem do ícone que o Bluetooth informa.
         return parts.Select(p => p.Icon).FirstOrDefault(i => i != null) switch
         {
-            "input-keyboard" => ("Teclado", "keyboard", 2),
-            "input-mouse" or "input-tablet" => ("Mouse", "mouse", 1),
-            "input-gaming" => ("Controle", "controller", 0),
-            { } i when i.StartsWith("audio-") => ("Áudio", "headset", 5),
-            _ => (parts.Any(p => p.Class == PartClass.Bluetooth) ? "Bluetooth" : "Outro", "device", 4),
+            "input-keyboard" => (Lang.T("kind.keyboard"), "keyboard", 2),
+            "input-mouse" or "input-tablet" => (Lang.T("kind.mouse"), "mouse", 1),
+            "input-gaming" => (Lang.T("kind.controller"), "controller", 0),
+            { } i when i.StartsWith("audio-") => (Lang.T("kind.audio"), "headset", 5),
+            _ => (Lang.T(parts.Any(p => p.Class == PartClass.Bluetooth) ? "kind.bluetooth" : "kind.other"), "device", 4),
         };
     }
 
@@ -286,7 +286,7 @@ public static class DeviceScanner
     // Então colocamos a bateria nos controles já listados, na ordem; sobrando, criamos linhas novas.
     private static void AddXInputControllers(List<DeviceInfo> devices)
     {
-        var controllers = devices.Where(d => d.Kind == "Controle").ToList();
+        var controllers = devices.Where(d => d.Icon == "controller").ToList();
         var next = 0;
 
         for (int slot = 0; slot < XInput.MaxControllers; slot++)
@@ -303,10 +303,10 @@ public static class DeviceScanner
             {
                 devices.Add(new DeviceInfo
                 {
-                    Name = $"Controle XInput {slot + 1}",
-                    Kind = "Controle",
+                    Name = Lang.T("device.xinput", slot + 1),
+                    Kind = Lang.T("kind.controller"),
                     Icon = "controller",
-                    Status = "Conectado",
+                    Status = Lang.T("device.connected"),
                     Battery = battery,
                     SortOrder = 0,
                 });

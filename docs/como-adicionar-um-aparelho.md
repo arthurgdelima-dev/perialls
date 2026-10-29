@@ -97,8 +97,8 @@ com o valor atual.
 O app nunca manda nada sozinho ao abrir: os comandos só saem quando a pessoa muda algo na tela. Como
 um driver JSON não lê o estado do aparelho, a tela mostra a última escolha salva (ou o `default`).
 
-Os nomes `brightness`, `speed`, `effect`, `direction`, `pollingRate` e `dpi` já ganham um título em
-português. Para outros, use `label`.
+Os nomes `brightness`, `speed`, `effect`, `direction`, `pollingRate` e `dpi` já ganham um título traduzido
+(português e inglês). Para outros, use `label`.
 
 ## 4. Teste no seu computador
 

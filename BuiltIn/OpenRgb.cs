@@ -85,7 +85,7 @@ public static class OpenRgb
 
     private static Device FindDevice(OpenRgbClient client, string location) =>
         client.GetAllControllerData().FirstOrDefault(d => d.Location == location)
-        ?? throw new InvalidOperationException("O OpenRGB não encontrou mais esse aparelho.");
+        ?? throw new InvalidOperationException(Lang.T("error.openRgbLost"));
 
     // Descobre os códigos USB no endereço que o OpenRGB informa (ex.: "HID: \\?\HID#VID_1462&PID_7C56#...").
     public static string? HardwareId(Device device)

@@ -61,11 +61,11 @@ public static class LogitechHidpp
     public static void SetDpi(int productId, byte index, int dpi)
     {
         using var channel = Channel.Open(productId)
-            ?? throw new InvalidOperationException("O aparelho não está mais conectado.");
+            ?? throw new InvalidOperationException(Lang.T("error.disconnected"));
         var feature = channel.FindFeature(index, FeatureAdjustableDpi)
-            ?? throw new InvalidOperationException("Esse aparelho não permite mudar o DPI.");
+            ?? throw new InvalidOperationException(Lang.T("error.noDpi"));
         _ = channel.Request(index, feature, 3, 0, (byte)(dpi >> 8), (byte)dpi)
-            ?? throw new InvalidOperationException("O aparelho não respondeu.");
+            ?? throw new InvalidOperationException(Lang.T("error.noReply"));
     }
 
     // Receptores (Unifying, Lightspeed, Bolt) usam códigos 0xC5xx e guardam até 6 aparelhos.
@@ -119,10 +119,10 @@ public static class LogitechHidpp
             // [porcentagem, nível, estado de carga]
             var level = u[0] > 0 ? $"{u[0]}%" : u[1] switch
             {
-                >= 8 => "Cheia",
-                >= 4 => "Boa",
-                >= 2 => "Baixa",
-                _ => "Crítica",
+                >= 8 => Lang.T("battery.full"),
+                >= 4 => Lang.T("battery.good"),
+                >= 2 => Lang.T("battery.low"),
+                _ => Lang.T("battery.critical"),
             };
             return level + ChargingText(u[2]);
         }
@@ -139,7 +139,7 @@ public static class LogitechHidpp
         {
             // [tensão em milivolts (2 bytes), flags]. A porcentagem é uma estimativa pela tensão.
             var millivolts = (v[0] << 8) | v[1];
-            return $"~{PercentFromVoltage(millivolts)}%" + ((v[2] & 0x80) != 0 ? " · carregando" : "");
+            return $"~{PercentFromVoltage(millivolts)}%" + ((v[2] & 0x80) != 0 ? Lang.T("battery.charging") : "");
         }
 
         return "—";
@@ -147,8 +147,8 @@ public static class LogitechHidpp
 
     private static string ChargingText(byte status) => status switch
     {
-        1 or 2 => " · carregando",
-        3 => " · carregada",
+        1 or 2 => Lang.T("battery.charging"),
+        3 => Lang.T("battery.charged"),
         _ => "",
     };
 

@@ -2,6 +2,8 @@
 
 # Perialls
 
+**Português** · [English](README.en.md)
+
 App leve para Windows e Linux que mostra seus periféricos num lugar só: o que está conectado, a bateria,
 a cor do RGB e o DPI do mouse.
 
@@ -21,6 +23,7 @@ Não substitui os apps das marcas (G Hub, Synapse etc.). É só uma tela simples
 | DPI | Mouses Logitech com HID++ |
 | Efeito, cor, brilho, velocidade e Hz | Teclado Akko/MonsGeek FUN60 PRO |
 | Funções extras por driver | Aparelhos com driver em [`drivers/`](drivers), baixado pelo próprio app |
+| Sincronizar RGB | A mesma cor em todos os aparelhos com RGB, com um clique |
 
 ## Como usar
 
@@ -56,6 +59,12 @@ fica gravada no aparelho.
 
 Dê **dois cliques no nome** de um aparelho para renomear (Enter salva, Esc cancela, deixar vazio volta
 ao nome original). Os nomes ficam em `%AppData%\Perialls\nomes.txt` (no Linux, `~/.config/Perialls/nomes.txt`).
+
+O botão da **gota** na barra lateral **sincroniza o RGB**: a cor escolhida vai para todos os aparelhos
+com RGB de uma vez. Se algum falhar, o rodapé diz qual, e os outros recebem a cor normalmente.
+
+O **idioma** (português ou inglês) fica no pé da barra lateral (`PT`/`EN`). Na primeira vez o app usa o
+idioma do sistema.
 
 Passe o mouse num cartão para **ocultar** um aparelho que você não quer ver. O botão do olho na barra
 lateral mostra os ocultos de novo. A lista de ocultos fica em `%AppData%\Perialls\ocultos.txt` (no Linux, `~/.config/Perialls/ocultos.txt`).

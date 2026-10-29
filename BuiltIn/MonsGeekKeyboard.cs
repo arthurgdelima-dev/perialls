@@ -38,31 +38,35 @@ public static class MonsGeekKeyboard
     private const byte SingleColor = 8;
     private const byte Multicolor = 7;
 
-    public sealed record Effect(byte Id, string Name, bool UsesColor = true, byte DefaultOption = 0);
+    // Key: a chave do nome na tela (Assets/Lang, "effect.<Key>").
+    public sealed record Effect(byte Id, string Key, bool UsesColor = true, byte DefaultOption = 0)
+    {
+        public string Name => Lang.T("effect." + Key);
+    }
 
     // Os efeitos que o driver oficial oferece para o FUN60 PRO, com o número que vai no pacote.
     public static readonly IReadOnlyList<Effect> Effects =
     [
-        new(1, "Estático"),
-        new(2, "Respiração"),
-        new(3, "Neon", UsesColor: false),
-        new(4, "Onda", DefaultOption: 2), // nesse efeito só as opções 2 e 3 (para baixo/para cima) existem
-        new(5, "Ondulação"),
-        new(6, "Gotas"),
-        new(7, "Cobra"),
-        new(8, "Ao pressionar"),
-        new(9, "Convergir"),
-        new(10, "Senoide"),
-        new(11, "Caleidoscópio"),
-        new(12, "Linhas"),
-        new(14, "Laser"),
-        new(15, "Onda circular"),
-        new(16, "Brilhante"),
-        new(17, "Chuva"),
-        new(18, "Meteoro"),
-        new(19, "Apaga ao pressionar"),
-        new(23, "Trem"),
-        new(24, "Fogos"),
+        new(1, "static"),
+        new(2, "breath"),
+        new(3, "neon", UsesColor: false),
+        new(4, "wave", DefaultOption: 2), // nesse efeito só as opções 2 e 3 (para baixo/para cima) existem
+        new(5, "ripple"),
+        new(6, "raindrop"),
+        new(7, "snake"),
+        new(8, "press"),
+        new(9, "converge"),
+        new(10, "sine"),
+        new(11, "kaleidoscope"),
+        new(12, "lines"),
+        new(14, "laser"),
+        new(15, "circle"),
+        new(16, "dazzle"),
+        new(17, "rain"),
+        new(18, "meteor"),
+        new(19, "pressOff"),
+        new(23, "train"),
+        new(24, "fireworks"),
     ];
 
     // Velocidade e brilho vão de 0 a 4. "Option" muda conforme o efeito (ex.: sentido da onda).
@@ -88,7 +92,7 @@ public static class MonsGeekKeyboard
     {
         using var channel = Channel.Open();
         if (channel?.Model == null)
-            throw new InvalidOperationException("O teclado não está mais conectado.");
+            throw new InvalidOperationException(Lang.T("error.keyboardDisconnected"));
 
         // O driver oficial troca o branco puro por FAFFFA antes de enviar; fazemos igual.
         var (r, g, b) = (lighting.R, lighting.G, lighting.B) == (255, 255, 255)
@@ -111,11 +115,11 @@ public static class MonsGeekKeyboard
     {
         var index = Array.IndexOf(RateTable, hz);
         if (index < 0)
-            throw new ArgumentException($"{hz} Hz não é uma opção do teclado.");
+            throw new ArgumentException(Lang.T("error.badRate", hz));
 
         using var channel = Channel.Open();
         if (channel?.Model == null)
-            throw new InvalidOperationException("O teclado não está mais conectado.");
+            throw new InvalidOperationException(Lang.T("error.keyboardDisconnected"));
 
         channel.Write([CmdSetReportRate, 0, (byte)index], checksumAt: 7);
     }

@@ -2,6 +2,7 @@
 using System.Globalization;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Data.Converters;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -28,6 +29,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        LanguageButton.Content = Lang.Current == "pt-BR" ? "PT" : "EN";
         Opened += async (_, _) => await RefreshAsync();
         Closed += (_, _) => StopOpenRgbIfWeStartedIt();
     }
@@ -38,7 +40,7 @@ public partial class MainWindow : Window
     private async Task RefreshAsync()
     {
         RefreshButton.IsEnabled = false;
-        StatusText.Text = "Procurando aparelhos...";
+        StatusText.Text = Lang.T("status.searching");
         try
         {
             // A busca roda fora da tela para a janela não "congelar" enquanto o sistema responde.
@@ -60,9 +62,9 @@ public partial class MainWindow : Window
             ShowDevices();
 
             var hiddenCount = _devices.Count(d => d.IsHidden);
-            StatusText.Text = $"{_devices.Count - hiddenCount} aparelhos"
-                + (hiddenCount > 0 ? $" ({hiddenCount} ocultos)" : "")
-                + $" · atualizado às {DateTime.Now:HH:mm:ss}";
+            StatusText.Text = Lang.T("status.count", _devices.Count - hiddenCount)
+                + (hiddenCount > 0 ? Lang.T("status.hiddenCount", hiddenCount) : "")
+                + Lang.T("status.updatedAt", DateTime.Now.ToString("HH:mm:ss"));
 
             if (catalogWarning != null)
                 StatusText.Text += "\n" + catalogWarning;
@@ -70,11 +72,11 @@ public partial class MainWindow : Window
                 StatusText.Text += "\n" + problem;
 
             if (result.HidAccessDenied)
-                StatusText.Text += "\nSem permissão para falar com Logitech/Akko: instale a regra do udev (veja o README).";
+                StatusText.Text += "\n" + Lang.T("status.hidDenied");
 
             if (!result.OpenRgbRunning)
             {
-                StatusText.Text += "\nRGB indisponível: abra o OpenRGB com o SDK Server ligado.";
+                StatusText.Text += "\n" + Lang.T("status.rgbUnavailable");
                 StartOpenRgbButton.IsVisible = OpenRgb.FindExe() != null;
             }
             else
@@ -84,7 +86,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            StatusText.Text = "Erro ao ler os aparelhos: " + ex.Message;
+            StatusText.Text = Lang.T("status.scanError", ex.Message);
         }
         finally
         {
@@ -186,10 +188,10 @@ public partial class MainWindow : Window
                 break;
             case DriverAction.RequestSupport:
                 await OpenLinkAsync(DriverCatalog.SupportRequestUrl(device));
-                StatusText.Text = "Pedido de suporte aberto no navegador. Confira os dados e clique em \"Create\".";
+                StatusText.Text = Lang.T("status.supportOpened");
                 break;
             case DriverAction.Download or DriverAction.Update when device.DriverEntry is { } entry:
-                StatusText.Text = $"Baixando o driver {entry.Name}...";
+                StatusText.Text = Lang.T("status.downloadingDriver", entry.Name);
                 var (ok, message) = await DriverCatalog.InstallAsync(entry);
                 StatusText.Text = message;
                 if (ok)
@@ -209,7 +211,7 @@ public partial class MainWindow : Window
     private async Task OpenLinkAsync(string url)
     {
         if (!await Launcher.LaunchUriAsync(new Uri(url)))
-            StatusText.Text = "Não deu para abrir o navegador. Endereço: " + url;
+            StatusText.Text = Lang.T("status.browserFailed", url);
     }
 
     private async void Swatch_Click(object? sender, RoutedEventArgs e)
@@ -241,9 +243,8 @@ public partial class MainWindow : Window
 
         var error = await SetColorAsync(device, r, g, b);
         ShowDevices();
-        StatusText.Text = error != null ? $"Não deu para mudar a cor de {device.Name}: {error}"
-            : (r, g, b) == (0, 0, 0) ? $"LEDs apagados: {device.Name}"
-            : $"Cor {ColorText(r, g, b)} aplicada: {device.Name}";
+        StatusText.Text = error != null ? Lang.T("status.colorFailed", device.Name, error)
+            : Lang.T("status.forDevice", (r, g, b) == (0, 0, 0) ? Lang.T("status.ledsOff") : Lang.T("status.colorApplied", ColorText(r, g, b)), device.Name);
     }
 
     // Sincronizar RGB: a mesma cor em todos os aparelhos com RGB (OpenRGB, drivers JSON e o teclado Akko).
@@ -266,20 +267,20 @@ public partial class MainWindow : Window
         var targets = _devices.Where(d => d.HasRgb).ToList();
         if (targets.Count == 0)
         {
-            StatusText.Text = "Nenhum aparelho com RGB para sincronizar.";
+            StatusText.Text = Lang.T("status.syncNone");
             return;
         }
 
         SyncButton.IsEnabled = false;
-        StatusText.Text = $"Aplicando {ColorText(r, g, b)} em {targets.Count} aparelhos...";
+        StatusText.Text = Lang.T("status.syncApplying", ColorText(r, g, b), targets.Count);
         var errors = await Task.WhenAll(targets.Select(d => SetColorAsync(d, r, g, b)));
         SyncButton.IsEnabled = true;
         ShowDevices();
 
         var failed = targets.Zip(errors).Where(x => x.Second != null).Select(x => $"{x.First.Name} ({x.Second})").ToList();
         StatusText.Text = failed.Count == 0
-            ? $"Cor {ColorText(r, g, b)} aplicada em {targets.Count} aparelhos."
-            : $"Cor {ColorText(r, g, b)} aplicada em {targets.Count - failed.Count} de {targets.Count} aparelhos. Falhou: {string.Join(", ", failed)}";
+            ? Lang.T("status.syncDone", ColorText(r, g, b), targets.Count)
+            : Lang.T("status.syncPartial", ColorText(r, g, b), targets.Count - failed.Count, targets.Count, string.Join(", ", failed));
     }
 
     // Pinta um aparelho pelo caminho que ele tiver. Devolve null se deu certo, ou o motivo da falha.
@@ -316,7 +317,7 @@ public partial class MainWindow : Window
             }
             else
             {
-                return "não tem RGB";
+                return Lang.T("error.noRgb");
             }
 
             device.SavedColor = ColorText(r, g, b);
@@ -325,7 +326,7 @@ public partial class MainWindow : Window
         }
         catch (DriverException ex)
         {
-            return "nada foi enviado, " + ex.Message;
+            return Lang.T("error.nothingSent", ex.Message);
         }
         catch (Exception ex)
         {
@@ -340,7 +341,7 @@ public partial class MainWindow : Window
         if (hex.Length == 6 && int.TryParse(hex, NumberStyles.HexNumber, null, out var rgb))
             return ((byte)(rgb >> 16), (byte)(rgb >> 8), (byte)rgb);
 
-        StatusText.Text = "Cor inválida. Use o formato #RRGGBB, por exemplo #FF8800.";
+        StatusText.Text = Lang.T("status.invalidColor");
         return null;
     }
 
@@ -349,14 +350,14 @@ public partial class MainWindow : Window
     private async void DriverChoice_Click(object? sender, RoutedEventArgs e)
     {
         if ((sender as Control)?.DataContext is DriverChoice choice)
-            await ApplyDriverAsync(choice.Device, choice.Control, choice.Sets, $"{choice.Control.Label} {choice.Label} aplicado");
+            await ApplyDriverAsync(choice.Device, choice.Control, choice.Sets, Lang.T("status.valueSet", choice.Control.Label, choice.Label));
     }
 
     private async void DriverList_Changed(object? sender, SelectionChangedEventArgs e)
     {
         // Sem item removido = é só a tela mostrando a opção atual, não um clique.
         if (e.RemovedItems.Count > 0 && (sender as ComboBox)?.SelectedItem is DriverChoice { IsCurrent: false } choice)
-            await ApplyDriverAsync(choice.Device, choice.Control, choice.Sets, $"{choice.Control.Label} {choice.Label} aplicado");
+            await ApplyDriverAsync(choice.Device, choice.Control, choice.Sets, Lang.T("status.valueSet", choice.Control.Label, choice.Label));
     }
 
     // Envia um comando do driver JSON e mostra o resultado no rodapé.
@@ -366,15 +367,15 @@ public partial class MainWindow : Window
         {
             await SendDriverAsync(device, control, sets);
             ShowDevices();
-            StatusText.Text = $"{message}: {device.Name}";
+            StatusText.Text = Lang.T("status.forDevice", message, device.Name);
         }
         catch (DriverException ex)
         {
-            StatusText.Text = $"Nada foi enviado: {ex.Message}.";
+            StatusText.Text = Lang.T("status.nothingSent", ex.Message);
         }
         catch (Exception ex)
         {
-            StatusText.Text = "Não deu para falar com o aparelho: " + ex.Message;
+            StatusText.Text = Lang.T("status.deviceFailed", ex.Message);
         }
     }
 
@@ -382,7 +383,7 @@ public partial class MainWindow : Window
     private static async Task SendDriverAsync(DeviceInfo device, DriverControl control, IReadOnlyDictionary<string, int> sets)
     {
         if (device.Driver is not { } driver)
-            throw new DriverException("o aparelho não tem driver");
+            throw new DriverException(Lang.T("error.noDriver"));
 
         var values = new Dictionary<string, int>(device.DriverValues);
         foreach (var (key, value) in sets)
@@ -421,7 +422,7 @@ public partial class MainWindow : Window
         if (int.TryParse((box.Text ?? "").Trim(), out var dpi) && dpi >= 50 && dpi <= 50000)
             await ApplyDpiAsync(device, dpi);
         else
-            StatusText.Text = "DPI inválido. Digite só o número, por exemplo 1600.";
+            StatusText.Text = Lang.T("status.invalidDpi");
     }
 
     private async Task ApplyDpiAsync(DeviceInfo device, int dpi)
@@ -432,11 +433,11 @@ public partial class MainWindow : Window
             device.Dpi = dpi;
             UserSettings.Current.Remember(device, s => s.Dpi = dpi);
             ShowDevices(); // redesenha os cartões com o DPI novo
-            StatusText.Text = $"DPI {dpi} aplicado: {device.Name}";
+            StatusText.Text = Lang.T("status.forDevice", Lang.T("status.valueSet", "DPI", dpi), device.Name);
         }
         catch (Exception ex)
         {
-            StatusText.Text = "Não deu para mudar o DPI: " + ex.Message;
+            StatusText.Text = Lang.T("status.dpiFailed", ex.Message);
         }
     }
 
@@ -447,19 +448,19 @@ public partial class MainWindow : Window
             return;
         if (device.KeyboardLighting is { } current && current.Effect != effect.Id)
             await ApplyKeyboardLightingAsync(device, current with { Effect = effect.Id, Option = effect.DefaultOption },
-                $"Efeito {effect.Name} aplicado");
+                Lang.T("status.valueSet", Lang.T("control.effect"), effect.Name));
     }
 
     private async void KeyboardBrightness_Click(object? sender, RoutedEventArgs e)
     {
         if ((sender as Control)?.DataContext is Choice { Device: { KeyboardLighting: { } current } device } choice)
-            await ApplyKeyboardLightingAsync(device, current with { Brightness = (byte)choice.Value }, $"Brilho {choice.Value} aplicado");
+            await ApplyKeyboardLightingAsync(device, current with { Brightness = (byte)choice.Value }, Lang.T("status.valueSet", Lang.T("control.brightness"), choice.Value));
     }
 
     private async void KeyboardSpeed_Click(object? sender, RoutedEventArgs e)
     {
         if ((sender as Control)?.DataContext is Choice { Device: { KeyboardLighting: { } current } device } choice)
-            await ApplyKeyboardLightingAsync(device, current with { Speed = (byte)choice.Value }, $"Velocidade {choice.Value} aplicada");
+            await ApplyKeyboardLightingAsync(device, current with { Speed = (byte)choice.Value }, Lang.T("status.valueSet", Lang.T("control.speed"), choice.Value));
     }
 
     private async Task ApplyKeyboardLightingAsync(DeviceInfo device, MonsGeekKeyboard.Lighting lighting, string message)
@@ -470,11 +471,11 @@ public partial class MainWindow : Window
             device.KeyboardLighting = lighting;
             RememberLighting(device, lighting);
             ShowDevices();
-            StatusText.Text = $"{message}: {device.Name}";
+            StatusText.Text = Lang.T("status.forDevice", message, device.Name);
         }
         catch (Exception ex)
         {
-            StatusText.Text = "Não deu para mudar a iluminação: " + ex.Message;
+            StatusText.Text = Lang.T("status.lightingFailed", ex.Message);
         }
     }
 
@@ -488,11 +489,11 @@ public partial class MainWindow : Window
             device.ReportRateHz = hz;
             UserSettings.Current.Remember(device, s => s.ReportRateHz = hz);
             ShowDevices();
-            StatusText.Text = $"{hz} Hz aplicado: {device.Name}";
+            StatusText.Text = Lang.T("status.forDevice", Lang.T("status.valueSet", Lang.T("control.pollingRate"), $"{hz} Hz"), device.Name);
         }
         catch (Exception ex)
         {
-            StatusText.Text = "Não deu para mudar o Hz: " + ex.Message;
+            StatusText.Text = Lang.T("status.rateFailed", ex.Message);
         }
     }
 
@@ -550,6 +551,30 @@ public partial class MainWindow : Window
         };
     }
 
+    // Troca entre português e inglês. Os textos da tela são lidos quando a janela é criada,
+    // então abrimos uma janela nova no idioma novo, no mesmo lugar, e fechamos esta.
+    private void Language_Click(object? sender, RoutedEventArgs e)
+    {
+        var next = Lang.Current == "pt-BR" ? "en" : "pt-BR";
+        UserSettings.Current.Language = next;
+        UserSettings.Current.Save();
+        Lang.Load(next);
+
+        var window = new MainWindow
+        {
+            WindowStartupLocation = WindowStartupLocation.Manual,
+            Position = Position,
+            Width = Width,
+            Height = Height,
+            _openRgbWeStarted = _openRgbWeStarted,
+        };
+        _openRgbWeStarted = null; // o OpenRGB continua aberto: agora é a janela nova que cuida dele
+        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+            desktop.MainWindow = window;
+        window.Show();
+        Close();
+    }
+
     private void Minimize_Click(object? sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
 
     private void Close_Click(object? sender, RoutedEventArgs e) => Close();
@@ -561,14 +586,14 @@ public partial class MainWindow : Window
             return;
 
         StartOpenRgbButton.IsEnabled = false;
-        StatusText.Text = "Abrindo o OpenRGB e esperando ele achar os aparelhos...";
+        StatusText.Text = Lang.T("status.openingOpenRgb");
         try
         {
             _openRgbWeStarted = await OpenRgb.StartAsync(exe);
         }
         catch (Exception ex)
         {
-            StatusText.Text = "Não deu para abrir o OpenRGB: " + ex.Message;
+            StatusText.Text = Lang.T("status.openRgbFailed", ex.Message);
             return;
         }
         finally

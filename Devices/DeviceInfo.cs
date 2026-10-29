@@ -55,7 +55,7 @@ public sealed class DeviceInfo
     public bool IsRenaming { get; set; }
 
     public bool IsHidden { get; set; }
-    public string HideLabel => IsHidden ? "Mostrar" : "Ocultar";
+    public string HideLabel => Lang.T(IsHidden ? "card.show" : "card.hide");
     public double Opacity => IsHidden ? 0.45 : 1.0;
 
     // Identificação estável do aparelho, usada para lembrar se ele está oculto e o nome que você deu.
