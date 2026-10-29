@@ -20,6 +20,7 @@ Não substitui os apps das marcas (G Hub, Synapse etc.). É só uma tela simples
 | Cor RGB | Tudo que o [OpenRGB](https://openrgb.org) reconhece (placa-mãe, fans, fitas, periféricos) |
 | DPI | Mouses Logitech com HID++ |
 | Efeito, cor, brilho, velocidade e Hz | Teclado Akko/MonsGeek FUN60 PRO |
+| Funções extras por driver | Aparelhos com driver em [`drivers/`](drivers), baixado pelo próprio app |
 
 ## Como usar
 
@@ -51,6 +52,24 @@ ao nome original). Os nomes ficam em `%AppData%\Perialls\nomes.txt` (no Linux, `
 
 Passe o mouse num cartão para **ocultar** um aparelho que você não quer ver. O botão do olho na barra
 lateral mostra os ocultos de novo. A lista de ocultos fica em `%AppData%\Perialls\ocultos.txt` (no Linux, `~/.config/Perialls/ocultos.txt`).
+
+### Drivers
+
+No canto de cada cartão aparece um ícone pequeno:
+
+| Ícone | Quer dizer |
+|---|---|
+| ⬇ | Existe um driver para o aparelho. Clique para baixar: as funções aparecem na hora. |
+| ⟳ | Há uma versão nova do driver. |
+| ✓ | Driver instalado. |
+| Ventoinha | O [OpenRGB](https://openrgb.org) controla o RGB desse aparelho. Clique para abrir o site. |
+| ➕ | Ainda não há suporte. Clique para abrir um pedido no GitHub, já preenchido com os dados do aparelho. |
+
+Os drivers são só arquivos JSON que descrevem os comandos. O app nunca baixa programas, confere o hash
+de cada driver com o índice e bloqueia comandos perigosos (firmware, reset). Ficam em
+`%LocalAppData%\Perialls\drivers` (no Linux, `~/.local/share/Perialls/drivers`).
+
+Quer fazer o driver de um aparelho? Veja [como adicionar um aparelho](docs/como-adicionar-um-aparelho.md).
 
 ### Teclado Akko/MonsGeek FUN60 PRO
 - Feche o software oficial (MonsGeek Driver e o `iot_driver` que roda em segundo plano) e o driver

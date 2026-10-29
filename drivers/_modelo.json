@@ -1,0 +1,33 @@
+{
+  "_leia": "Modelo de driver. Copie, renomeie (ex.: minha-marca.json) e apague os campos que começam com _. Explicação completa em docs/como-adicionar-um-aparelho.md.",
+
+  "name": "Marca Modelo",
+  "devices": [
+    { "vid": "0x0000", "pid": "0x0000", "model": "Nome do modelo" }
+  ],
+
+  "_interface": "Para onde os comandos vão. usagePage/usage dizem qual interface HID (a de configuração costuma ser 0xFF00 ou maior). type: feature ou output.",
+  "interface": { "usagePage": "0xFF00", "usage": "0x01", "reportId": 0, "reportLength": 64, "type": "feature" },
+
+  "_checksum": "none, ou ff-minus-sum: o byte em checksumAt vira 0xFF menos a soma dos bytes anteriores.",
+  "checksum": "none",
+  "checksumAt": 7,
+
+  "_delayMs": "Espera mínima entre dois comandos, em milissegundos (0 a 2000).",
+  "delayMs": 0,
+
+  "_defaults": "Valores iniciais de variáveis que não são controles (ex.: um modo fixo).",
+  "defaults": { "direction": 0 },
+
+  "_controls": "O cartão mostra só os controles daqui. Em bytes: números hex (07) ou variáveis ({r}, {brightness}). O 1º byte é o comando e precisa ser fixo.",
+  "controls": {
+    "color": { "bytes": "00 {r} {g} {b}" },
+    "brightness": { "min": 0, "max": 4, "default": 4, "bytes": "00 {brightness}" },
+    "effect": {
+      "options": { "Estático": 1, "Respiração": 2, "Onda para a direita": { "effect": 3, "direction": 0 } },
+      "default": "Estático",
+      "bytes": "00 {effect} {direction}"
+    },
+    "pollingRate": { "options": { "1000 Hz": 3, "8000 Hz": 0 }, "bytes": "00 {pollingRate}" }
+  }
+}

@@ -1,0 +1,49 @@
+name: Pedir suporte para um aparelho
+description: Quero que o Perialls tenha funções extras (RGB, DPI, Hz...) para o meu aparelho.
+title: "Suporte para "
+labels: ["pedido de suporte"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Obrigado! Se você abriu isto pelo ícone ➕ do app, os campos abaixo já vêm preenchidos.
+        Quer ajudar a fazer o driver? Veja [como adicionar um aparelho](https://github.com/arthurgdelima-dev/perialls/blob/main/docs/como-adicionar-um-aparelho.md).
+  - type: input
+    id: aparelho
+    attributes:
+      label: Aparelho
+      description: Marca e modelo, do jeito que aparece no app ou na caixa.
+      placeholder: Akko FUN60 PRO
+    validations:
+      required: true
+  - type: input
+    id: tipo
+    attributes:
+      label: Tipo
+      placeholder: Teclado, Mouse, Headset, Controle...
+  - type: input
+    id: vidpid
+    attributes:
+      label: Código USB (VID/PID)
+      description: O app preenche sozinho. No Windows fica no Gerenciador de Dispositivos; no Linux, no comando lsusb.
+      placeholder: VID_3151&PID_502D
+    validations:
+      required: true
+  - type: dropdown
+    id: sistema
+    attributes:
+      label: Sistema
+      options:
+        - Windows
+        - Linux
+        - Outro
+  - type: textarea
+    id: funcoes
+    attributes:
+      label: O que você queria controlar?
+      placeholder: Cor do RGB, efeitos, brilho, DPI, taxa de atualização (Hz)...
+  - type: textarea
+    id: software
+    attributes:
+      label: Software oficial
+      description: Nome e link do programa ou site da marca que controla o aparelho (ajuda a descobrir os comandos).
