@@ -55,6 +55,11 @@ Anote:
   costumam ter usage page `0xFF00` ou maior), se os pacotes são *feature reports* ou *output reports*,
   o *report ID* e o tamanho do pacote.
 - **Cada comando:** os bytes enviados e o que muda neles quando você mexe num valor.
+- **O comando de salvar na memória (`save`):** muitos mouses precisam de um comando explícito para gravar a DPI ou os LEDs na memória permanente (flash/EEPROM). Veja como descobrir:
+  1. No software oficial, mude a DPI (ou clique em "Aplicar" / "Salvar no aparelho" / "Save to Onboard", se houver esse botão).
+  2. Observe a sequência de pacotes: com frequência você verá dois pacotes saindo em sequência — o primeiro ajusta o sensor/valor na RAM, e o segundo é um pacote fixo (ex.: `07 ...` ou `00 5A ...`) que comanda a gravação interna.
+  3. Para confirmar se é esse o comando: anote os bytes desse segundo pacote, desconecte e reconecte o mouse da porta USB (sem abrir o software oficial) e teste se a DPI se manteve.
+  4. Declare esse pacote na chave `"save": { "bytes": "..." }` do driver. O Perialls enviará o comando `save` automaticamente logo após mudar a DPI ou qualquer outro controle.
 - **O checksum,** se houver. Teste se o último byte é `0xFF − soma dos anteriores` (o app já sabe fazer
   esse cálculo).
 - **Os comandos perigosos:** firmware, bootloader, reset de fábrica, apagar a memória, calibração.
