@@ -24,6 +24,11 @@ Não substitui os apps das marcas (G Hub, Synapse etc.). É só uma tela simples
 ## Como usar
 
 1. Baixe o `Perialls.exe` na página de [Releases](../../releases) e abra. Não precisa instalar nada.
+
+   > **"O Windows protegeu o computador"?** Esse aviso aparece porque o `.exe` não tem assinatura
+   > digital (o certificado é pago). Clique em **Mais informações → Executar assim mesmo**. O código
+   > está todo aqui no repositório, se você quiser conferir ou compilar você mesmo.
+
 2. **Para controlar RGB:** instale o [OpenRGB](https://openrgb.org) e deixe ele aberto com o
    **SDK Server** ligado (aba *SDK Server* → *Start Server*). Se o OpenRGB estiver instalado, o
    Perialls mostra um botão na barra lateral para abrir ele já com o servidor ligado.
@@ -80,3 +85,7 @@ O código USB (VID/PID) aparece no Gerenciador de Dispositivos: *Propriedades* �
 - [OpenRGB.NET](https://github.com/diogotr7/OpenRGB.NET): cliente do SDK do OpenRGB pela rede.
   O OpenRGB em si é um programa separado (GPL) e não vem junto com o Perialls.
 - System.Management: lista os aparelhos pelo Windows (WMI).
+
+## Licença
+
+[MIT](LICENSE): pode usar, copiar e modificar à vontade, desde que mantenha o aviso de copyright.
