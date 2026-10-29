@@ -104,29 +104,71 @@
         <Border BorderBrush="#D0FFFFFF" BorderThickness="1" CornerRadius="18" Margin="10">
             <Grid ColumnDefinitions="60,1,*">
 
-                <!-- Barra lateral -->
-                <StackPanel Margin="0,14,0,0" HorizontalAlignment="Center">
-                    <Image Source="/Assets/logo.png" Width="32" Height="32" Margin="0,0,0,14"
-                           RenderOptions.BitmapInterpolationMode="HighQuality" ToolTip.Tip="Perialls"/>
-                    <Button x:Name="RefreshButton" Click="Refresh_Click" ToolTip.Tip="Atualizar"
-                            Classes="ghost" Margin="0,0,0,8">
-                        <Viewbox Width="20" Height="20">
-                            <Path Classes="line" Data="{x:Static local:Icons.Refresh}"/>
-                        </Viewbox>
-                    </Button>
-                    <ToggleButton x:Name="ShowHiddenBox" ToolTip.Tip="Mostrar aparelhos ocultos"
-                                  IsCheckedChanged="ShowHidden_Changed" Classes="ghost" Margin="0,0,0,8">
-                        <Viewbox Width="20" Height="20">
-                            <Path Classes="line" Data="{x:Static local:Icons.Eye}"/>
-                        </Viewbox>
-                    </ToggleButton>
-                    <Button x:Name="StartOpenRgbButton" Click="StartOpenRgb_Click" IsVisible="False"
-                            ToolTip.Tip="Abrir o OpenRGB (para controlar o RGB)" Classes="ghost">
-                        <Viewbox Width="20" Height="20">
-                            <Path Classes="line" Data="{x:Static local:Icons.Fan}"/>
-                        </Viewbox>
-                    </Button>
-                </StackPanel>
+                <!-- Barra lateral (o idioma fica no pé) -->
+                <DockPanel>
+                    <Button x:Name="LanguageButton" DockPanel.Dock="Bottom" Click="Language_Click"
+                            ToolTip.Tip="{local:T sidebar.language}" Classes="ghost" Padding="6,4"
+                            HorizontalAlignment="Center" Margin="0,0,0,12" FontSize="11" Foreground="#8A8A95"/>
+                    <StackPanel Margin="0,14,0,0" HorizontalAlignment="Center">
+                        <Image Source="/Assets/logo.png" Width="32" Height="32" Margin="0,0,0,14"
+                               RenderOptions.BitmapInterpolationMode="HighQuality" ToolTip.Tip="Perialls"/>
+                        <Button x:Name="RefreshButton" Click="Refresh_Click" ToolTip.Tip="{local:T sidebar.refresh}"
+                                Classes="ghost" Margin="0,0,0,8">
+                            <Viewbox Width="20" Height="20">
+                                <Path Classes="line" Data="{x:Static local:Icons.Refresh}"/>
+                            </Viewbox>
+                        </Button>
+                        <ToggleButton x:Name="ShowHiddenBox" ToolTip.Tip="{local:T sidebar.showHidden}"
+                                      IsCheckedChanged="ShowHidden_Changed" Classes="ghost" Margin="0,0,0,8">
+                            <Viewbox Width="20" Height="20">
+                                <Path Classes="line" Data="{x:Static local:Icons.Eye}"/>
+                            </Viewbox>
+                        </ToggleButton>
+                        <!-- Sincronizar RGB: a mesma cor em todos os aparelhos -->
+                        <Button x:Name="SyncButton" ToolTip.Tip="{local:T sidebar.sync}"
+                                Classes="ghost" Margin="0,0,0,8">
+                            <Viewbox Width="20" Height="20">
+                                <Path Classes="line" Data="{x:Static local:Icons.Sync}"/>
+                            </Viewbox>
+                            <Button.Flyout>
+                                <Flyout Placement="RightEdgeAlignedTop">
+                                    <StackPanel Width="150">
+                                        <TextBlock Classes="value" Margin="0,0,0,8" Text="{local:T sidebar.syncTitle}"/>
+                                        <ItemsControl ItemsSource="{x:Static local:DeviceInfo.SyncSwatches}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <WrapPanel/>
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Button Click="Swatch_Click" Cursor="Hand" Margin="0,0,5,5"
+                                                            ToolTip.Tip="{Binding Hex}">
+                                                        <Button.Template>
+                                                            <ControlTemplate>
+                                                                <Ellipse Width="16" Height="16" Fill="{Binding Brush}"
+                                                                         Stroke="#55555F" StrokeThickness="1"/>
+                                                            </ControlTemplate>
+                                                        </Button.Template>
+                                                    </Button>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                        <TextBox Width="64" Text="#" Classes="small" HorizontalAlignment="Left"
+                                                 ToolTip.Tip="{local:T card.customColorTip}"
+                                                 KeyDown="SyncCustomColor_KeyDown"/>
+                                    </StackPanel>
+                                </Flyout>
+                            </Button.Flyout>
+                        </Button>
+                        <Button x:Name="StartOpenRgbButton" Click="StartOpenRgb_Click" IsVisible="False"
+                                ToolTip.Tip="{local:T sidebar.openRgb}" Classes="ghost">
+                            <Viewbox Width="20" Height="20">
+                                <Path Classes="line" Data="{x:Static local:Icons.Fan}"/>
+                            </Viewbox>
+                        </Button>
+                    </StackPanel>
+                </DockPanel>
 
                 <!-- Linha vertical que separa a barra lateral -->
                 <Rectangle Grid.Column="1" Fill="#333338" Margin="0,18"/>
@@ -136,19 +178,19 @@
 
                     <!-- Topo: título e botões de minimizar/fechar -->
                     <DockPanel Margin="6,0,0,8">
-                        <Button DockPanel.Dock="Right" Click="Close_Click" ToolTip.Tip="Fechar"
+                        <Button DockPanel.Dock="Right" Click="Close_Click" ToolTip.Tip="{local:T window.close}"
                                 Classes="ghost" Padding="4">
                             <Viewbox Width="16" Height="16">
                                 <Path Classes="line" Data="{x:Static local:Icons.Close}"/>
                             </Viewbox>
                         </Button>
-                        <Button DockPanel.Dock="Right" Click="Minimize_Click" ToolTip.Tip="Minimizar"
+                        <Button DockPanel.Dock="Right" Click="Minimize_Click" ToolTip.Tip="{local:T window.minimize}"
                                 Classes="ghost" Padding="4" Margin="0,0,4,0">
                             <Viewbox Width="16" Height="16">
                                 <Path Classes="line" Data="{x:Static local:Icons.Minimize}"/>
                             </Viewbox>
                         </Button>
-                        <TextBlock Text="Periféricos" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        <TextBlock Text="{local:T app.title}" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center"/>
                     </DockPanel>
 
                     <!-- Grade de cartões: a largura de cada cartão é calculada em Cards_SizeChanged -->
@@ -214,7 +256,7 @@
                                             <TextBox Grid.Row="1" Classes="small" Text="{Binding Name, Mode=OneWay}" FontSize="13" Height="24"
                                                      Margin="0,8,0,0" HorizontalContentAlignment="Center"
                                                      IsVisible="{Binding IsRenaming}"
-                                                     ToolTip.Tip="Enter salva · Esc cancela · vazio volta ao nome original"
+                                                     ToolTip.Tip="{local:T card.renameTip}"
                                                      AttachedToVisualTree="RenameBox_Attached" KeyDown="RenameBox_KeyDown"
                                                      LostFocus="RenameBox_LostFocus"/>
                                             <TextBlock Grid.Row="2" Foreground="#A8A8B3" FontSize="12" Margin="0,2,0,0"
@@ -222,7 +264,7 @@
                                                 <Run Text="{Binding Kind}"/><Run Text=" · "/><Run Text="{Binding Status}"/>
                                             </TextBlock>
                                             <TextBlock Grid.Row="3" Classes="value" Margin="0,2,0,0" IsVisible="{Binding HasBattery}">
-                                                <Run Text="Bateria "/><Run Text="{Binding Battery}"/>
+                                                <Run Text="{local:T card.battery}"/><Run Text=" "/><Run Text="{Binding Battery}"/>
                                             </TextBlock>
 
                                             <!-- Extras: cores (OpenRGB ou teclado Akko) e DPI (HID++) -->
@@ -241,7 +283,7 @@
                                                                     <Button.Template>
                                                                         <ControlTemplate>
                                                                             <Ellipse Width="16" Height="16" Fill="{Binding Brush}"
-                                                                                     Stroke="#55555F" StrokeThickness="1"/>
+                                                                                     Stroke="{Binding Stroke}" StrokeThickness="{Binding StrokeThickness}"/>
                                                                         </ControlTemplate>
                                                                     </Button.Template>
                                                                 </Button>
@@ -249,15 +291,18 @@
                                                         </ItemsControl.ItemTemplate>
                                                     </ItemsControl>
                                                     <!-- Cor personalizada: digite um código como #FF8800 e aperte Enter -->
-                                                    <TextBox Width="64" Text="#" Classes="small"
-                                                             ToolTip.Tip="Cor personalizada (ex.: #FF8800) + Enter"
+                                                    <TextBox Width="64" Text="{Binding ColorText, Mode=OneWay}" Classes="small"
+                                                             ToolTip.Tip="{local:T card.customColorTip}"
                                                              KeyDown="CustomColor_KeyDown"/>
                                                 </WrapPanel>
 
                                                 <StackPanel IsVisible="{Binding HasDpi}">
-                                                    <TextBlock Classes="value" Margin="0,0,0,6">
-                                                        <Run Text="DPI "/><Run Text="{Binding Dpi}" FontWeight="SemiBold"/>
+                                                    <TextBlock Classes="value" Margin="0,0,0,2">
+                                                        <Run Text="{local:T control.dpi}"/><Run Text=" "/><Run Text="{Binding Dpi}" FontWeight="SemiBold"/>
                                                     </TextBlock>
+                                                    <!-- O DPI muda só na hora: o mouse volta ao dele quando é desligado -->
+                                                    <TextBlock Text="{local:T card.dpiNote}" FontSize="10" Foreground="#6A6A75"
+                                                               TextAlignment="Center" TextWrapping="Wrap" Margin="0,0,0,6"/>
                                                     <WrapPanel HorizontalAlignment="Center">
                                                         <ItemsControl ItemsSource="{Binding DpiChoices}">
                                                             <ItemsControl.ItemsPanel>
@@ -274,7 +319,7 @@
                                                         </ItemsControl>
                                                         <!-- DPI personalizado: digite e aperte Enter -->
                                                         <TextBox Width="56" Classes="small"
-                                                                 ToolTip.Tip="DPI personalizado + Enter"
+                                                                 ToolTip.Tip="{local:T card.customDpiTip}"
                                                                  KeyDown="DpiCustom_KeyDown"/>
                                                     </WrapPanel>
                                                 </StackPanel>
@@ -286,10 +331,10 @@
                                                               SelectedItem="{Binding KeyboardEffect, Mode=OneWay}"
                                                               SelectionChanged="KeyboardEffect_Changed"
                                                               FontSize="11" MinWidth="140" HorizontalAlignment="Center"
-                                                              Margin="0,0,0,8" ToolTip.Tip="Efeito de iluminação"/>
+                                                              Margin="0,0,0,8" ToolTip.Tip="{local:T card.effectTip}"/>
 
                                                     <TextBlock Classes="value" Margin="0,0,0,4">
-                                                        <Run Text="Brilho "/><Run Text="{Binding KeyboardLighting.Brightness}" FontWeight="SemiBold"/>
+                                                        <Run Text="{local:T control.brightness}"/><Run Text=" "/><Run Text="{Binding KeyboardLighting.Brightness}" FontWeight="SemiBold"/>
                                                     </TextBlock>
                                                     <ItemsControl ItemsSource="{Binding BrightnessChoices}" HorizontalAlignment="Center">
                                                         <ItemsControl.ItemsPanel>
@@ -306,7 +351,7 @@
                                                     </ItemsControl>
 
                                                     <TextBlock Classes="value" Margin="0,4,0,4">
-                                                        <Run Text="Velocidade "/><Run Text="{Binding KeyboardLighting.Speed}" FontWeight="SemiBold"/>
+                                                        <Run Text="{local:T control.speed}"/><Run Text=" "/><Run Text="{Binding KeyboardLighting.Speed}" FontWeight="SemiBold"/>
                                                     </TextBlock>
                                                     <ItemsControl ItemsSource="{Binding SpeedChoices}" HorizontalAlignment="Center">
                                                         <ItemsControl.ItemsPanel>
@@ -323,7 +368,7 @@
                                                     </ItemsControl>
 
                                                     <TextBlock Classes="value" Margin="0,4,0,4">
-                                                        <Run Text="Taxa de atualização "/><Run Text="{Binding ReportRateHz}" FontWeight="SemiBold"/><Run Text=" Hz"/>
+                                                        <Run Text="{local:T control.pollingRate}"/><Run Text=" "/><Run Text="{Binding ReportRateHz}" FontWeight="SemiBold"/><Run Text=" Hz"/>
                                                     </TextBlock>
                                                     <ItemsControl ItemsSource="{Binding ReportRateChoices}" HorizontalAlignment="Center">
                                                         <ItemsControl.ItemsPanel>

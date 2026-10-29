@@ -21,7 +21,12 @@
 
   <!-- Logo e fotos dos aparelhos: tudo em Assets vai para dentro do executável. -->
   <ItemGroup>
-    <AvaloniaResource Include="Assets\**" />
+    <AvaloniaResource Include="Assets\**" Exclude="Assets\Lang\**" />
+  </ItemGroup>
+
+  <!-- Textos da tela (português e inglês). -->
+  <ItemGroup>
+    <EmbeddedResource Include="Assets\Lang\*.json" LogicalName="Lang.%(Filename).json" />
   </ItemGroup>
 
 </Project>

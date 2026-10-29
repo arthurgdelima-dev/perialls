@@ -2,6 +2,8 @@
 
 # Perialls
 
+**Português** · [English](README.en.md)
+
 App leve para Windows e Linux que mostra seus periféricos num lugar só: o que está conectado, a bateria,
 a cor do RGB e o DPI do mouse.
 
@@ -21,12 +23,20 @@ Não substitui os apps das marcas (G Hub, Synapse etc.). É só uma tela simples
 | DPI | Mouses Logitech com HID++ |
 | Efeito, cor, brilho, velocidade e Hz | Teclado Akko/MonsGeek FUN60 PRO |
 | Funções extras por driver | Aparelhos com driver em [`drivers/`](drivers), baixado pelo próprio app |
+| Sincronizar RGB | A mesma cor em todos os aparelhos com RGB, com um clique |
 
 ## Como usar
 
-1. Baixe na página de [Releases](../../releases) e abra. Não precisa instalar nada.
-   - **Windows:** `Perialls.exe`.
-   - **Linux:** `Perialls`. Dê permissão de execução (`chmod +x Perialls`) e abra.
+1. **[Baixar a última versão](https://github.com/arthurgdelima-dev/perialls/releases/latest)** e abrir.
+   Não precisa instalar nada.
+   - **Windows:** `Perialls-win-x64.exe`.
+   - **Linux:** `Perialls-linux-x64.tar.gz`. Extraia e abra:
+     ```
+     tar -xzf Perialls-linux-x64.tar.gz
+     chmod +x Perialls-linux-x64   # o .tar.gz já guarda a permissão; só precisa se ela se perder
+     ./Perialls-linux-x64
+     ```
+   - `SHA256SUMS.txt` traz o hash de cada arquivo, se você quiser conferir o download.
 
    > **"O Windows protegeu o computador"?** Esse aviso aparece porque o `.exe` não tem assinatura
    > digital (o certificado é pago). Clique em **Mais informações → Executar assim mesmo**. O código
@@ -47,8 +57,21 @@ Não substitui os apps das marcas (G Hub, Synapse etc.). É só uma tela simples
 4. Clique em **Atualizar** sempre que conectar ou desconectar um aparelho. O app não fica
    verificando sozinho.
 
+**O app não muda nada sozinho.** Ao abrir, ele só lê os aparelhos. Cor, DPI, Hz e o resto só são
+enviados quando você muda algo na tela. A última escolha de cada aparelho fica em
+`%AppData%\Perialls\settings.json` (no Linux, `~/.config/Perialls/settings.json`), só para mostrar na tela
+o que você escolheu quando o aparelho não informa o próprio estado. Ela não é reaplicada ao abrir.
+Quando o aparelho tem memória própria e o OpenRGB ou o driver sabem gravar nela, a configuração também
+fica gravada no aparelho.
+
 Dê **dois cliques no nome** de um aparelho para renomear (Enter salva, Esc cancela, deixar vazio volta
 ao nome original). Os nomes ficam em `%AppData%\Perialls\nomes.txt` (no Linux, `~/.config/Perialls/nomes.txt`).
+
+O botão da **gota** na barra lateral **sincroniza o RGB**: a cor escolhida vai para todos os aparelhos
+com RGB de uma vez. Se algum falhar, o rodapé diz qual, e os outros recebem a cor normalmente.
+
+O **idioma** (português ou inglês) fica no pé da barra lateral (`PT`/`EN`). Na primeira vez o app usa o
+idioma do sistema.
 
 Passe o mouse num cartão para **ocultar** um aparelho que você não quer ver. O botão do olho na barra
 lateral mostra os ocultos de novo. A lista de ocultos fica em `%AppData%\Perialls\ocultos.txt` (no Linux, `~/.config/Perialls/ocultos.txt`).
@@ -98,14 +121,27 @@ dotnet publish Perialls.csproj -p:PublishProfile=win-x64     # sai em publish\Pe
 dotnet publish Perialls.csproj -p:PublishProfile=linux-x64   # sai em publish/linux/Perialls
 ```
 
-## Adicionar a foto de um aparelho
+## Publicar uma versão
 
-1. Coloque um PNG em `Assets/Devices/`.
-2. Adicione uma linha em `Assets/Devices/devices.json` ligando o código USB do aparelho ao arquivo:
-   ```json
-   "VID_046D&PID_4093": "logitech-pro-x-superlight.png"
-   ```
-3. Compile de novo. Aparelhos sem foto mostram o ícone do tipo no lugar.
+As Releases são feitas sozinhas pelo GitHub Actions ([.github/workflows/release.yml](.github/workflows/release.yml)).
+Basta criar uma tag que comece com `v` e enviar:
+
+```
+git tag v0.2.0
+git push --tags
+```
+
+Em alguns minutos aparece a Release com o `.exe` do Windows, o `.tar.gz` do Linux, os hashes e as
+notas geradas a partir dos commits. Para acompanhar, veja a aba *Actions* do repositório.
+
+## Fotos dos aparelhos
+
+As fotos são automáticas: ninguém precisa adicionar imagem. Quando um aparelho não tem foto salva, o app
+procura uma na internet em segundo plano (Bing e, se não der, DuckDuckGo) e guarda só no seu PC, em
+`%LocalAppData%\Perialls\imagens` (no Linux, `~/.local/share/Perialls/imagens`). Para isso, **o nome do
+aparelho (marca e modelo) é enviado ao buscador**. A busca só aceita imagens com fundo transparente e
+formato quadrado; se nada servir ou estiver sem internet, o cartão mostra o ícone do tipo e o app tenta
+de novo no próximo Atualizar.
 
 O código USB (VID/PID) aparece no Gerenciador de Dispositivos: *Propriedades* → *Detalhes* →
 *IDs de hardware*. No Linux, no comando `lsusb` (ex.: `ID 046d:4093` vira `VID_046D&PID_4093`).

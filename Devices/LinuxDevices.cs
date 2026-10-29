@@ -39,7 +39,7 @@ public static class LinuxDevices
         AddBatteries(groups.Values);
 
         return groups.Values
-            .Select(g => new PartGroup(g.Parts, g.Status ?? (g.IsBluetooth ? "Conectado (Bluetooth)" : "Conectado"), g.Battery))
+            .Select(g => new PartGroup(g.Parts, g.Status ?? Lang.T(g.IsBluetooth ? "device.connectedBluetooth" : "device.connected"), g.Battery))
             .ToList();
     }
 
@@ -128,7 +128,7 @@ public static class LinuxDevices
                 groups[key] = group = new Group { IsBluetooth = true };
 
             group.Parts.Insert(0, new Part(PartClass.Bluetooth, bt.Name, VendorId: bt.VendorId, Icon: bt.Icon));
-            group.Status = bt.Connected ? "Conectado (Bluetooth)" : "Pareado, desconectado";
+            group.Status = Lang.T(bt.Connected ? "device.connectedBluetooth" : "device.pairedOff");
             if (bt.Battery is byte level)
                 group.Battery = $"{level}%";
         }
@@ -153,10 +153,10 @@ public static class LinuxDevices
             var level = int.TryParse(Read(dir, "capacity"), out var percent) ? $"{percent}%"
                 : Read(dir, "capacity_level") switch
                 {
-                    "Full" => "Cheia",
-                    "High" or "Normal" => "Boa",
-                    "Low" => "Baixa",
-                    "Critical" => "Crítica",
+                    "Full" => Lang.T("battery.full"),
+                    "High" or "Normal" => Lang.T("battery.good"),
+                    "Low" => Lang.T("battery.low"),
+                    "Critical" => Lang.T("battery.critical"),
                     _ => null,
                 };
             if (level == null)
@@ -164,8 +164,8 @@ public static class LinuxDevices
 
             group.Battery = level + Read(dir, "status") switch
             {
-                "Charging" => " · carregando",
-                "Full" => " · carregada",
+                "Charging" => Lang.T("battery.charging"),
+                "Full" => Lang.T("battery.charged"),
                 _ => "",
             };
         }
@@ -200,7 +200,7 @@ public static class LinuxDevices
             // ("USB Receiver", "MYSTIC LIGHT") e o código USB principal.
             var vendor = Read(usb, "idVendor") ?? "";
             var product = Read(usb, "product");
-            group.Parts.Add(new Part(PartClass.Other, product ?? "Aparelho USB", BusName: product, IsUsb: true,
+            group.Parts.Add(new Part(PartClass.Other, product ?? Lang.T("device.usb"), BusName: product, IsUsb: true,
                 HardwareId: DeviceScanner.HardwareId(vendor, Read(usb, "idProduct") ?? ""), VendorId: vendor));
         }
         return groups[key] = group;
@@ -371,7 +371,7 @@ public static class LinuxDevices
 
                     devices.Add(new Device(
                         Get(dev, "Address")?.GetString() ?? "",
-                        Get(dev, "Alias")?.GetString() ?? Get(dev, "Name")?.GetString() ?? "Aparelho Bluetooth",
+                        Get(dev, "Alias")?.GetString() ?? Get(dev, "Name")?.GetString() ?? Lang.T("device.bluetooth"),
                         Get(dev, "Connected")?.GetBoolean() == true,
                         Get(dev, "Icon")?.GetString(),
                         vendor,

@@ -1,10 +1,14 @@
+using System.ComponentModel;
 using Avalonia.Media;
 
 namespace Perialls;
 
 // Uma linha da lista: um aparelho físico e o que sabemos sobre ele.
-public sealed class DeviceInfo
+// Só a foto avisa a tela quando muda: ela chega depois, em segundo plano (veja DeviceImages).
+public sealed class DeviceInfo : INotifyPropertyChanged
 {
+    public event PropertyChangedEventHandler? PropertyChanged;
+
     public string Name { get; set; } = "";
     public string Kind { get; set; } = "";
     public string Status { get; set; } = "";
@@ -22,6 +26,15 @@ public sealed class DeviceInfo
     public string? RgbLocation { get; set; }
     public bool HasRgb => RgbLocation != null || HasKeyboardLighting || DriverHasColor;
 
+    // Cor atual: a que o aparelho informa (teclado Akko, OpenRGB) ou, se ele não informa,
+    // a última que você escolheu (settings.json). Fica destacada nas bolinhas de cor.
+    public string? ReportedColor { get; set; }
+    public string? SavedColor { get; set; }
+    public string? CurrentColor => KeyboardLighting is { } k
+        ? (k.Brightness == 0 ? "#000000" : k.Multicolor ? null : $"#{k.R:X2}{k.G:X2}{k.B:X2}")
+        : ReportedColor ?? SavedColor;
+    public string ColorText => CurrentColor ?? "#";
+
     // Iluminação e Hz de teclados Akko/MonsGeek, pelo protocolo do driver oficial (sem OpenRGB).
     public MonsGeekKeyboard.Lighting? KeyboardLighting { get; set; }
     public bool HasKeyboardLighting => KeyboardLighting != null;
@@ -37,16 +50,29 @@ public sealed class DeviceInfo
     public int LogitechProductId { get; set; }
     public byte LogitechIndex { get; set; }
 
-    // Foto do aparelho (de Assets/Devices). Se for null, a tela mostra o ícone grande.
-    public IImage? Photo { get; set; }
+    // Foto do aparelho, achada na internet e guardada no cache (DeviceImages). Sem foto, a tela mostra o ícone grande.
+    public IImage? Photo
+    {
+        get => _photo;
+        set
+        {
+            _photo = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Photo)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HasPhoto)));
+        }
+    }
+    private IImage? _photo;
     public bool HasPhoto => Photo != null;
+
+    // Aparelho Bluetooth (o nome dele é o do produto, mesmo sem código USB).
+    public bool IsBluetooth { get; set; }
 
     // Nome que o aparelho/sistema informa, antes de você renomear. Usado para voltar ao original.
     public string OriginalName { get; set; } = "";
     public bool IsRenaming { get; set; }
 
     public bool IsHidden { get; set; }
-    public string HideLabel => IsHidden ? "Mostrar" : "Ocultar";
+    public string HideLabel => Lang.T(IsHidden ? "card.show" : "card.hide");
     public double Opacity => IsHidden ? 0.45 : 1.0;
 
     // Identificação estável do aparelho, usada para lembrar se ele está oculto e o nome que você deu.
@@ -77,6 +103,9 @@ public sealed class DeviceInfo
     public IEnumerable<Choice> SpeedChoices => Levels.Select(l => new Choice(this, l, l == KeyboardLighting?.Speed));
     public IEnumerable<Choice> ReportRateChoices => MonsGeekKeyboard.ReportRates.Select(hz => new Choice(this, hz, hz == ReportRateHz));
 
+    // As mesmas cores no seletor de "Sincronizar RGB" (sem aparelho: vale para todos).
+    public static IEnumerable<ColorChoice> SyncSwatches => SwatchColors.Select(hex => new ColorChoice(null, hex));
+
     // Cores rápidas para RGB. A última (preto) desliga os LEDs.
     private static readonly string[] SwatchColors =
         ["#FF0000", "#FF6A00", "#FFD000", "#00FF40", "#00E5FF", "#0040FF", "#8A00FF", "#FF00A0", "#FFFFFF", "#000000"];
@@ -88,10 +117,13 @@ public sealed class DeviceInfo
 // Um botão de valor (DPI, brilho, velocidade, Hz).
 public sealed record Choice(DeviceInfo Device, int Value, bool IsCurrent);
 
-// Um botão de cor.
-public sealed record ColorChoice(DeviceInfo Device, string Hex)
+// Um botão de cor. Sem aparelho (Device null) é o de "Sincronizar RGB".
+public sealed record ColorChoice(DeviceInfo? Device, string Hex)
 {
     public IBrush Brush { get; } = SolidColorBrush.Parse(Hex);
+    public bool IsCurrent => string.Equals(Device?.CurrentColor, Hex, StringComparison.OrdinalIgnoreCase);
+    public IBrush Stroke => IsCurrent ? Brushes.White : SolidColorBrush.Parse("#55555F");
+    public double StrokeThickness => IsCurrent ? 2 : 1;
 }
 
 // Um controle do driver JSON como aparece no cartão: título, valor atual e botões (ou lista, se forem muitos).

@@ -68,13 +68,13 @@ public static class WindowsDevices
         // Status de conexão.
         string status;
         if (parts.Any(p => p.ErrorCode != 0))
-            status = "Com problema";
+            status = Lang.T("device.problem");
         else if (bluetooth != null)
             // Um aparelho Bluetooth pareado mas desligado fica só com a parte "Bluetooth".
             // Quando conecta, o Windows cria as outras partes (mouse, áudio...).
-            status = parts.Any(p => p.Class != "Bluetooth") ? "Conectado (Bluetooth)" : "Pareado, desconectado";
+            status = parts.Any(p => p.Class != "Bluetooth") ? Lang.T("device.connectedBluetooth") : Lang.T("device.pairedOff");
         else
-            status = "Conectado";
+            status = Lang.T("device.connected");
 
         // Bateria Bluetooth (quando o aparelho informa).
         var battery = "—";

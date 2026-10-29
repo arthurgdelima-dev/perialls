@@ -77,7 +77,7 @@ public static class DriverCatalog
             if (index != null)
                 Save(Path.Combine(CacheFolder, "index.json"), fresh);
             else
-                warning = "Índice de drivers inválido no servidor (" + error + "). Usando a cópia salva.";
+                warning = Lang.T("drivers.indexInvalid", error);
         }
         index ??= ReadFile(Path.Combine(CacheFolder, "index.json"), MaxIndexBytes) is { } cached
             ? ParseIndex(cached, out _)
@@ -113,13 +113,13 @@ public static class DriverCatalog
                 continue; // apagado: o ícone volta a oferecer o download
             if (!HashMatches(data, record.Sha256))
             {
-                Problems.Add($"O driver {record.Name} foi alterado no disco e não será usado. Baixe de novo.");
+                Problems.Add(Lang.T("drivers.changedOnDisk", record.Name));
                 continue;
             }
             if (Driver.Load(data, isLocal: false, out var error) is { } driver)
                 Loaded[file] = driver;
             else
-                Problems.Add($"Driver {record.Name} inválido ({error}). Nada será enviado.");
+                Problems.Add(Lang.T("drivers.installedInvalid", record.Name, error));
         }
 
         // Drivers em teste: valem as mesmas regras, só não há hash para conferir.
@@ -129,11 +129,11 @@ public static class DriverCatalog
             {
                 var name = Path.GetFileName(path);
                 if (ReadFile(path, Driver.MaxFileBytes) is not { } data)
-                    Problems.Add($"Driver local {name} grande demais.");
+                    Problems.Add(Lang.T("drivers.localTooBig", name));
                 else if (Driver.Load(data, isLocal: true, out var error) is { } driver)
                     LocalDrivers.Add(driver);
                 else
-                    Problems.Add($"Driver local {name} inválido: {error}. Nada será enviado.");
+                    Problems.Add(Lang.T("drivers.localInvalid", name, error));
             }
         }
         catch
@@ -147,15 +147,15 @@ public static class DriverCatalog
     {
         var data = await TryFetchAsync(entry.File, Driver.MaxFileBytes);
         if (data == null)
-            return (false, $"Não deu para baixar o driver {entry.Name}. Confira a internet e tente de novo.");
+            return (false, Lang.T("drivers.downloadFailed", entry.Name));
         if (!HashMatches(data, entry.Sha256))
-            return (false, $"O driver {entry.Name} baixado não confere com o índice (hash SHA-256 diferente). Nada foi instalado.");
+            return (false, Lang.T("drivers.hashMismatch", entry.Name));
 
         var driver = Driver.Load(data, isLocal: false, out var error);
         if (driver == null)
-            return (false, $"Driver {entry.Name} inválido: {error}. Nada foi instalado.");
+            return (false, Lang.T("drivers.invalid", entry.Name, error));
         if (!entry.Devices.All(driver.HardwareIds.Contains))
-            return (false, $"O índice e o driver {entry.Name} não listam os mesmos aparelhos. Nada foi instalado.");
+            return (false, Lang.T("drivers.devicesMismatch", entry.Name));
 
         try
         {
@@ -171,11 +171,11 @@ public static class DriverCatalog
         }
         catch (Exception ex)
         {
-            return (false, $"Não deu para salvar o driver {entry.Name}: {ex.Message}");
+            return (false, Lang.T("drivers.saveFailed", entry.Name, ex.Message));
         }
 
         Loaded[entry.File] = driver;
-        return (true, $"Driver {entry.Name} {entry.Version} instalado.");
+        return (true, Lang.T("drivers.installed", entry.Name, entry.Version));
     }
 
     // A lista do OpenRGB só é baixada de novo quando o hash no índice muda.
@@ -225,7 +225,15 @@ public static class DriverCatalog
             device.Driver = driver;
             var key = device.Key + "|" + driver.Name;
             if (!Values.TryGetValue(key, out var values))
+            {
+                // O aparelho não informa o estado: começa com a última escolha salva (só para mostrar).
                 Values[key] = values = new Dictionary<string, int>(driver.InitialValues);
+                foreach (var (name, value) in UserSettings.Current.Find(device)?.Values ?? [])
+                {
+                    if (values.ContainsKey(name) && value is >= 0 and <= 255)
+                        values[name] = value;
+                }
+            }
             device.DriverValues = values;
         }
 
@@ -233,28 +241,28 @@ public static class DriverCatalog
         if (local != null)
         {
             device.DriverAction = DriverAction.Installed;
-            device.DriverTip = $"Driver local em teste: {local.Name}";
+            device.DriverTip = Lang.T("tip.localDriver", local.Name);
         }
         else if (entry != null && driver != null && record?.Version == entry.Version)
         {
             device.DriverAction = DriverAction.Installed;
-            device.DriverTip = $"Driver {entry.Name} {entry.Version} instalado";
+            device.DriverTip = Lang.T("tip.installed", entry.Name, entry.Version);
         }
         else if (entry != null && driver != null)
         {
             device.DriverAction = DriverAction.Update;
-            device.DriverTip = $"Atualizar o driver {entry.Name}: versão {record?.Version} → {entry.Version}";
+            device.DriverTip = Lang.T("tip.update", entry.Name, record?.Version, entry.Version);
         }
         else if (entry != null)
         {
             device.DriverAction = DriverAction.Download;
-            device.DriverTip = $"Baixar driver {entry.Name} (versão {entry.Version}): ativa funções extras deste aparelho";
+            device.DriverTip = Lang.T("tip.download", entry.Name, entry.Version);
         }
         else if (driver != null)
         {
             // Instalado, mas saiu do índice: continua funcionando.
             device.DriverAction = DriverAction.Installed;
-            device.DriverTip = $"Driver {driver.Name} instalado";
+            device.DriverTip = Lang.T("tip.installedNoVersion", driver.Name);
         }
         else if (device.HasRgb || device.HasDpi || device.HasKeyboardLighting)
         {
@@ -264,12 +272,12 @@ public static class DriverCatalog
         else if (device.HardwareIds.Any(_openRgbIds.Contains))
         {
             device.DriverAction = DriverAction.OpenRgb;
-            device.DriverTip = "O OpenRGB controla o RGB deste aparelho. Clique para abrir o site dele";
+            device.DriverTip = Lang.T("tip.openRgb");
         }
         else if (device.HardwareIds.Count > 0)
         {
             device.DriverAction = DriverAction.RequestSupport;
-            device.DriverTip = "Pedir suporte: abre um pedido no GitHub com os dados deste aparelho";
+            device.DriverTip = Lang.T("tip.support");
         }
         else
         {
@@ -285,7 +293,7 @@ public static class DriverCatalog
         var fields = new Dictionary<string, string>
         {
             ["template"] = "pedir-suporte.yml",
-            ["title"] = $"Suporte para {device.OriginalName}",
+            ["title"] = Lang.T("support.title", device.OriginalName),
             ["aparelho"] = device.OriginalName,
             ["tipo"] = device.Kind,
             ["vidpid"] = string.Join(", ", device.HardwareIds),
@@ -304,13 +312,13 @@ public static class DriverCatalog
         }
         catch (JsonException ex)
         {
-            error = "JSON quebrado: " + ex.Message;
+            error = Lang.T("index.brokenJson", ex.Message);
             return null;
         }
 
         if (index == null || index.Format != 1)
         {
-            error = "formato desconhecido";
+            error = Lang.T("index.unknownFormat");
             return null;
         }
         foreach (var e in index.Drivers)
@@ -318,13 +326,13 @@ public static class DriverCatalog
             if (!SafeFileName.IsMatch(e.File) || !Sha256.IsMatch(e.Sha256) || e.Version.Length is 0 or > 20
                 || e.Name.Length is 0 or > 60 || e.Devices.Count == 0 || !e.Devices.All(id => DeviceId.IsMatch(id)))
             {
-                error = $"entrada \"{e.File}\" inválida";
+                error = Lang.T("index.badEntry", e.File);
                 return null;
             }
         }
         if (index.OpenRgb is { } list && (!SafeFileName.IsMatch(list.File) || !Sha256.IsMatch(list.Sha256)))
         {
-            error = "lista do OpenRGB inválida";
+            error = Lang.T("index.badOpenRgb");
             return null;
         }
 

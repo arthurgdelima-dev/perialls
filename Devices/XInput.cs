@@ -18,14 +18,14 @@ public static class XInput
         return info.Type switch
         {
             0 => "—",                    // desconectado
-            1 => "Com fio",              // ou um receptor que se apresenta como "com fio"
-            0xFF => "Não informada",
+            1 => Lang.T("battery.wired"),              // ou um receptor que se apresenta como "com fio"
+            0xFF => Lang.T("battery.unknown"),
             _ => info.Level switch
             {
-                0 => "Vazia",
-                1 => "Baixa",
-                2 => "Média",
-                _ => "Cheia",
+                0 => Lang.T("battery.empty"),
+                1 => Lang.T("battery.low"),
+                2 => Lang.T("battery.medium"),
+                _ => Lang.T("battery.full"),
             },
         };
     }

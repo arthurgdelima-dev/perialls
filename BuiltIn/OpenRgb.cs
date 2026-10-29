@@ -57,18 +57,35 @@ public static class OpenRgb
             // Alguns aparelhos guardam a cor dentro do próprio modo, não em cada LED.
             var colors = Enumerable.Repeat(color, Math.Max(1, mode.Colors.Length)).ToArray();
             client.UpdateMode(device.Index, mode.Index, colors: colors);
-            return;
+        }
+        else
+        {
+            if (mode != null)
+                client.UpdateMode(device.Index, mode.Index);
+            client.UpdateLeds(device.Index, Enumerable.Repeat(color, device.Leds.Length).ToArray());
         }
 
-        if (mode != null)
-            client.UpdateMode(device.Index, mode.Index);
-
-        client.UpdateLeds(device.Index, Enumerable.Repeat(color, device.Leds.Length).ToArray());
+        // Aparelhos com memória própria: grava, para a cor continuar mesmo sem o OpenRGB aberto.
+        if (mode != null && ((int)mode.Flags & ManualSaveFlag) != 0)
+        {
+            try
+            {
+                client.SaveMode(device.Index, mode.Index);
+            }
+            catch
+            {
+                // OpenRGB antigo (sem esse comando): a cor já foi aplicada, só não fica gravada.
+            }
+        }
     }
+
+    // MODE_FLAG_MANUAL_SAVE do OpenRGB: o modo pode ser gravado na memória do aparelho.
+    // (A biblioteca OpenRGB.NET ainda não tem esse nome.)
+    private const int ManualSaveFlag = 1 << 8;
 
     private static Device FindDevice(OpenRgbClient client, string location) =>
         client.GetAllControllerData().FirstOrDefault(d => d.Location == location)
-        ?? throw new InvalidOperationException("O OpenRGB não encontrou mais esse aparelho.");
+        ?? throw new InvalidOperationException(Lang.T("error.openRgbLost"));
 
     // Descobre os códigos USB no endereço que o OpenRGB informa (ex.: "HID: \\?\HID#VID_1462&PID_7C56#...").
     public static string? HardwareId(Device device)

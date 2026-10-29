@@ -25,9 +25,9 @@ faz:
 O driver embutido sempre ganha. Drivers JSON para esses VID/PID são **ignorados** (não aparece ícone de
 download, nem um driver na pasta `local` é usado) e o app nunca envia comandos JSON para eles. Um
 driver JSON da Logitech é recusado na validação. A lista de aparelhos embutidos fica em
-`BuiltInDevices`, no arquivo `DriverCatalog.cs`.
+`BuiltInDevices`, no arquivo [`JsonDrivers/DriverCatalog.cs`](../JsonDrivers/DriverCatalog.cs).
 
-Quer melhorar um desses? Mande o Pull Request no código C# (`MonsGeekKeyboard.cs`, `LogitechHidpp.cs`),
+Quer melhorar um desses? Mande o Pull Request no código C# ([`BuiltIn/MonsGeekKeyboard.cs`](../BuiltIn/MonsGeekKeyboard.cs), [`BuiltIn/LogitechHidpp.cs`](../BuiltIn/LogitechHidpp.cs)),
 e não um JSON.
 
 ## 1. Descubra o código USB (VID/PID)
@@ -78,6 +78,7 @@ Comece copiando o [`drivers/_modelo.json`](../drivers/_modelo.json). Os campos:
 | `delayMs` | Espera mínima entre dois comandos (0 a 2000 ms). |
 | `defaults` | Valores iniciais de variáveis que não são controles. |
 | `controls` | Os controles que aparecem no cartão. |
+| `save` | Opcional. Comando que grava a configuração na memória do aparelho (`bytes` e, se precisar, `checksumAt`). O app manda depois de cada mudança, para valer mesmo sem o app. Passa pelas mesmas regras dos controles. |
 
 Cada controle tem `bytes`: o pacote, com números hex (`07`) e variáveis entre chaves (`{brightness}`).
 O resto do pacote é completado com zeros. **O primeiro byte é o comando e precisa ser fixo.**
@@ -93,8 +94,11 @@ Uma variável pode aparecer no comando de vários controles. Por exemplo, se o a
 e efeito sempre no mesmo pacote, todos os controles usam o mesmo `bytes`, e o app preenche cada variável
 com o valor atual.
 
-Os nomes `brightness`, `speed`, `effect`, `direction`, `pollingRate` e `dpi` já ganham um título em
-português. Para outros, use `label`.
+O app nunca manda nada sozinho ao abrir: os comandos só saem quando a pessoa muda algo na tela. Como
+um driver JSON não lê o estado do aparelho, a tela mostra a última escolha salva (ou o `default`).
+
+Os nomes `brightness`, `speed`, `effect`, `direction`, `pollingRate` e `dpi` já ganham um título traduzido
+(português e inglês). Para outros, use `label`.
 
 ## 4. Teste no seu computador
 
@@ -128,7 +132,7 @@ o VID do seu aparelho.
    ```
    `devices` usa o formato `VID_xxxx&PID_yyyy`, com letras maiúsculas, e precisa bater com o arquivo.
 4. Se for um fabricante novo e você achou comandos perigosos, liste no PR (ou acrescente em
-   `BlockedCommands`, no arquivo `DriverFile.cs`).
+   `BlockedCommands`, no arquivo [`JsonDrivers/DriverFile.cs`](../JsonDrivers/DriverFile.cs)).
 5. No PR, conte em qual modelo e sistema você testou e de onde vieram os comandos.
 
 Para mudar um driver que já existe: altere o arquivo, aumente a `version` e atualize o `sha256` no
