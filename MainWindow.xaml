@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:sys="clr-namespace:System;assembly=mscorlib"
         xmlns:local="clr-namespace:Perialls"
-        Title="Perialls" Width="660" Height="760" MinWidth="380" MinHeight="420"
+        Title="Perialls" Icon="Assets/logo.ico" Width="660" Height="760" MinWidth="380" MinHeight="420"
         WindowStartupLocation="CenterScreen"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent" ResizeMode="CanResize"
         Foreground="#F2F2F2" FontFamily="Segoe UI">
@@ -174,7 +174,9 @@
                 </Grid.ColumnDefinitions>
 
                 <!-- Barra lateral -->
-                <StackPanel Margin="0,18,0,0" HorizontalAlignment="Center">
+                <StackPanel Margin="0,14,0,0" HorizontalAlignment="Center">
+                    <Image Source="Assets/logo.png" Width="32" Height="32" Margin="0,0,0,14"
+                           RenderOptions.BitmapScalingMode="HighQuality" ToolTip="Perialls"/>
                     <Button x:Name="RefreshButton" Click="Refresh_Click" ToolTip="Atualizar"
                             Style="{StaticResource GhostButton}" Margin="0,0,0,8">
                         <Viewbox Width="20" Height="20">

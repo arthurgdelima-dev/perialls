@@ -1,3 +1,5 @@
+<p align="center"><img src="Assets/logo.png" width="128" alt="Logo do Perialls"></p>
+
 # Perialls
 
 App leve para Windows que mostra seus periféricos num lugar só: o que está conectado, a bateria,
