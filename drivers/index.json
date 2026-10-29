@@ -1,0 +1,5 @@
+{
+  "format": 1,
+  "drivers": [],
+  "openrgb": { "file": "openrgb.json", "sha256": "05ec4c12928586ddd4a54a1728a2a439037179385a5d9356d920a121f803e7f7" }
+}

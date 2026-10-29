@@ -1,0 +1,13 @@
+{
+  "name": "Driver de teste",
+  "devices": [{ "vid": "0x413C", "pid": "0x2113", "model": "Dell KB216 (só para testar o app)" }],
+  "interface": { "usagePage": "0xFF00", "reportId": 0, "reportLength": 64, "type": "feature" },
+  "checksum": "none",
+  "defaults": { "r": 255, "g": 255, "b": 255 },
+  "controls": {
+    "color": { "bytes": "07 01 {r} {g} {b}" },
+    "brightness": { "min": 0, "max": 4, "default": 4, "bytes": "07 02 {brightness}" },
+    "effect": { "options": { "Estático": 0, "Onda": 1 }, "default": "Estático", "bytes": "07 03 {effect}" },
+    "pollingRate": { "options": { "1000 Hz": 1, "8000 Hz": 4 }, "default": "1000 Hz", "bytes": "07 04 {pollingRate}" }
+  }
+}

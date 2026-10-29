@@ -85,6 +85,11 @@
             <Setter Property="Opacity" Value="1"/>
         </Style>
 
+        <!-- Driver já instalado: o ✓ fica discreto. -->
+        <Style Selector="Button.installed Path.line">
+            <Setter Property="Stroke" Value="#6A6A75"/>
+        </Style>
+
         <Style Selector="TextBlock.value">
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="Foreground" Value="#D8D8DE"/>
@@ -178,16 +183,27 @@
                                                 <Path Classes="line" Data="{Binding Icon, Converter={x:Static local:Icons.ForKind}}"/>
                                             </Viewbox>
 
-                                            <!-- Ocultar/mostrar -->
-                                            <Button Classes="ghost hide" Classes.hidden="{Binding IsHidden}"
-                                                    Click="ToggleHidden_Click" ToolTip.Tip="{Binding HideLabel}"
-                                                    HorizontalAlignment="Right" VerticalAlignment="Top"
-                                                    Margin="0,-6,-6,0" Padding="4">
-                                                <Viewbox Width="14" Height="14">
-                                                    <Path Classes="line" Stroke="#9A9AA5"
-                                                          Data="{Binding IsHidden, Converter={x:Static local:Icons.ForHidden}}"/>
-                                                </Viewbox>
-                                            </Button>
+                                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                                        Margin="0,-6,-6,0">
+                                                <!-- Driver: baixar, OpenRGB, pedir suporte ou ✓ instalado -->
+                                                <Button Classes="ghost" Classes.installed="{Binding DriverAction, Converter={x:Static local:MainWindow.IsInstalled}}"
+                                                        Click="DriverIcon_Click" ToolTip.Tip="{Binding DriverTip}"
+                                                        IsVisible="{Binding HasDriverAction}" Padding="4">
+                                                    <Viewbox Width="14" Height="14">
+                                                        <Path Classes="line"
+                                                              Data="{Binding DriverAction, Converter={x:Static local:Icons.ForDriver}}"/>
+                                                    </Viewbox>
+                                                </Button>
+
+                                                <!-- Ocultar/mostrar -->
+                                                <Button Classes="ghost hide" Classes.hidden="{Binding IsHidden}"
+                                                        Click="ToggleHidden_Click" ToolTip.Tip="{Binding HideLabel}" Padding="4">
+                                                    <Viewbox Width="14" Height="14">
+                                                        <Path Classes="line" Stroke="#9A9AA5"
+                                                              Data="{Binding IsHidden, Converter={x:Static local:Icons.ForHidden}}"/>
+                                                    </Viewbox>
+                                                </Button>
+                                            </StackPanel>
 
                                             <!-- Nome e status -->
                                             <!-- Dois cliques no nome para renomear (Enter salva, Esc cancela) -->

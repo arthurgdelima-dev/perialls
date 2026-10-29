@@ -53,6 +53,12 @@ public sealed class DeviceInfo
     // Sem código USB (ex.: áudio), usa o nome original: o nome atual muda quando você renomeia.
     public string Key => HardwareIds.FirstOrDefault() ?? (OriginalName != "" ? OriginalName : Name);
 
+    // Ícone do canto: baixar driver, OpenRGB, pedir suporte ou driver instalado (veja DriverCatalog).
+    public DriverAction DriverAction { get; set; }
+    public string DriverTip { get; set; } = "";
+    public DriverIndexEntry? DriverEntry { get; set; }
+    public bool HasDriverAction => DriverAction != DriverAction.None;
+
     // Usado só para ordenar a lista (controles primeiro, áudio no fim).
     public int SortOrder { get; set; }
 

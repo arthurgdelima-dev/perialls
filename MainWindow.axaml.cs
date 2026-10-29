@@ -2,6 +2,7 @@
 using System.Globalization;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Data.Converters;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
@@ -20,6 +21,10 @@ public partial class MainWindow : Window
     // Largura da faixa nas bordas da janela que serve para mudar o tamanho.
     private const double ResizeBorder = 8;
 
+    // Deixa o ✓ de "driver instalado" mais discreto que os outros ícones.
+    public static readonly IValueConverter IsInstalled =
+        new FuncValueConverter<DriverAction, bool>(a => a == DriverAction.Installed);
+
     public MainWindow()
     {
         InitializeComponent();
@@ -37,7 +42,10 @@ public partial class MainWindow : Window
         try
         {
             // A busca roda fora da tela para a janela não "congelar" enquanto o sistema responde.
+            // O índice de drivers é baixado ao mesmo tempo.
+            var catalog = DriverCatalog.UpdateAsync();
             var result = await Task.Run(DeviceScanner.Scan);
+            var catalogWarning = await catalog;
             _devices = result.Devices;
             foreach (var d in _devices)
             {
@@ -46,6 +54,7 @@ public partial class MainWindow : Window
                 d.Photo = DevicePhotos.Find(d);
                 if (_names.TryGetValue(d.Key, out var custom))
                     d.Name = custom;
+                DriverCatalog.Describe(d);
             }
             ShowDevices();
 
@@ -53,6 +62,9 @@ public partial class MainWindow : Window
             StatusText.Text = $"{_devices.Count - hiddenCount} aparelhos"
                 + (hiddenCount > 0 ? $" ({hiddenCount} ocultos)" : "")
                 + $" · atualizado às {DateTime.Now:HH:mm:ss}";
+
+            if (catalogWarning != null)
+                StatusText.Text += "\n" + catalogWarning;
 
             if (result.HidAccessDenied)
                 StatusText.Text += "\nSem permissão para falar com Logitech/Akko: instale a regra do udev (veja o README).";
@@ -156,6 +168,36 @@ public partial class MainWindow : Window
             device.IsRenaming = false;
             ShowDevices();
         }
+    }
+
+    // Ícone do canto do cartão.
+    private async void DriverIcon_Click(object? sender, RoutedEventArgs e)
+    {
+        if ((sender as Control)?.DataContext is not DeviceInfo device)
+            return;
+
+        switch (device.DriverAction)
+        {
+            case DriverAction.OpenRgb:
+                await OpenLinkAsync(DriverCatalog.OpenRgbSite);
+                break;
+            case DriverAction.RequestSupport:
+                await OpenLinkAsync(DriverCatalog.SupportRequestUrl(device));
+                StatusText.Text = "Pedido de suporte aberto no navegador. Confira os dados e clique em \"Create\".";
+                break;
+            case DriverAction.Download or DriverAction.Update:
+                StatusText.Text = $"Driver {device.DriverEntry?.Name} {device.DriverEntry?.Version} disponível.";
+                break;
+            case DriverAction.Installed:
+                StatusText.Text = device.DriverTip;
+                break;
+        }
+    }
+
+    private async Task OpenLinkAsync(string url)
+    {
+        if (!await Launcher.LaunchUriAsync(new Uri(url)))
+            StatusText.Text = "Não deu para abrir o navegador. Endereço: " + url;
     }
 
     private async void Swatch_Click(object? sender, RoutedEventArgs e)

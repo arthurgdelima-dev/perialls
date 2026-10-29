@@ -1,0 +1,4 @@
+{
+  "source": "teste: finge que o OpenRGB suporta o mouse Dell MS116",
+  "devices": ["VID_413C&PID_301A"]
+}

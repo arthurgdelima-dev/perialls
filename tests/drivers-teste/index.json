@@ -1,0 +1,13 @@
+{
+  "format": 1,
+  "drivers": [
+    {
+      "name": "Driver de teste",
+      "file": "teste.json",
+      "version": "1.0.0",
+      "sha256": "2b16435c3e00091be99cbe34e9a0f0c4da96540749940a7482b14879aae31be2",
+      "devices": ["VID_413C&PID_2113"]
+    }
+  ],
+  "openrgb": { "file": "openrgb.json", "sha256": "15da7c46bcdb4d6265e04dc834a92266ab00e004bb19c38aab5fb3e35fc5a604" }
+}
