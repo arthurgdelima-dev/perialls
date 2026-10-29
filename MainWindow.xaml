@@ -133,6 +133,24 @@
             <Setter Property="Background" Value="#16161A"/>
         </Style>
 
+        <!-- Pílula que fica destacada quando é o valor atual. O valor atual fica no Tag da lista de botões.
+             (Texto continua branco: ao passar o mouse o fundo escurece, e texto preto sumiria.) -->
+        <local:SameValueConverter x:Key="SameValue"/>
+        <Style x:Key="ValuePill" TargetType="Button" BasedOn="{StaticResource PillButton}">
+            <Style.Triggers>
+                <DataTrigger Value="True">
+                    <DataTrigger.Binding>
+                        <MultiBinding Converter="{StaticResource SameValue}">
+                            <Binding/>
+                            <Binding Path="Tag" RelativeSource="{RelativeSource AncestorType=ItemsControl}"/>
+                        </MultiBinding>
+                    </DataTrigger.Binding>
+                    <Setter Property="Background" Value="#55555F"/>
+                    <Setter Property="FontWeight" Value="Bold"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
         <Style x:Key="SmallBox" TargetType="TextBox">
             <Setter Property="Height" Value="22"/>
             <Setter Property="FontSize" Value="11"/>
@@ -413,7 +431,8 @@
                                                         <Run Text="Brilho"/>
                                                         <Run Text="{Binding KeyboardLighting.Brightness, Mode=OneWay}" FontWeight="SemiBold"/>
                                                     </TextBlock>
-                                                    <ItemsControl ItemsSource="{StaticResource KeyboardLevels}" HorizontalAlignment="Center">
+                                                    <ItemsControl ItemsSource="{StaticResource KeyboardLevels}" HorizontalAlignment="Center"
+                                                                  Tag="{Binding KeyboardLighting.Brightness}">
                                                         <ItemsControl.ItemsPanel>
                                                             <ItemsPanelTemplate>
                                                                 <WrapPanel/>
@@ -422,7 +441,7 @@
                                                         <ItemsControl.ItemTemplate>
                                                             <DataTemplate>
                                                                 <Button Content="{Binding}" Click="KeyboardBrightness_Click"
-                                                                        Style="{StaticResource PillButton}"
+                                                                        Style="{StaticResource ValuePill}"
                                                                         Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ItemsControl}}"/>
                                                             </DataTemplate>
                                                         </ItemsControl.ItemTemplate>
@@ -432,7 +451,8 @@
                                                         <Run Text="Velocidade"/>
                                                         <Run Text="{Binding KeyboardLighting.Speed, Mode=OneWay}" FontWeight="SemiBold"/>
                                                     </TextBlock>
-                                                    <ItemsControl ItemsSource="{StaticResource KeyboardLevels}" HorizontalAlignment="Center">
+                                                    <ItemsControl ItemsSource="{StaticResource KeyboardLevels}" HorizontalAlignment="Center"
+                                                                  Tag="{Binding KeyboardLighting.Speed}">
                                                         <ItemsControl.ItemsPanel>
                                                             <ItemsPanelTemplate>
                                                                 <WrapPanel/>
@@ -441,7 +461,7 @@
                                                         <ItemsControl.ItemTemplate>
                                                             <DataTemplate>
                                                                 <Button Content="{Binding}" Click="KeyboardSpeed_Click"
-                                                                        Style="{StaticResource PillButton}"
+                                                                        Style="{StaticResource ValuePill}"
                                                                         Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ItemsControl}}"/>
                                                             </DataTemplate>
                                                         </ItemsControl.ItemTemplate>
@@ -452,7 +472,8 @@
                                                         <Run Text="{Binding ReportRateHz, Mode=OneWay}" FontWeight="SemiBold"/>
                                                         <Run Text="Hz"/>
                                                     </TextBlock>
-                                                    <ItemsControl ItemsSource="{x:Static local:MonsGeekKeyboard.ReportRates}" HorizontalAlignment="Center">
+                                                    <ItemsControl ItemsSource="{x:Static local:MonsGeekKeyboard.ReportRates}" HorizontalAlignment="Center"
+                                                                  Tag="{Binding ReportRateHz}">
                                                         <ItemsControl.ItemsPanel>
                                                             <ItemsPanelTemplate>
                                                                 <WrapPanel HorizontalAlignment="Center"/>
@@ -461,7 +482,7 @@
                                                         <ItemsControl.ItemTemplate>
                                                             <DataTemplate>
                                                                 <Button Content="{Binding}" Click="ReportRate_Click"
-                                                                        Style="{StaticResource PillButton}"
+                                                                        Style="{StaticResource ValuePill}"
                                                                         Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ItemsControl}}"/>
                                                             </DataTemplate>
                                                         </ItemsControl.ItemTemplate>
