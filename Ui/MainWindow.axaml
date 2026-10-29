@@ -278,7 +278,7 @@
                                                                     <Button.Template>
                                                                         <ControlTemplate>
                                                                             <Ellipse Width="16" Height="16" Fill="{Binding Brush}"
-                                                                                     Stroke="#55555F" StrokeThickness="1"/>
+                                                                                     Stroke="{Binding Stroke}" StrokeThickness="{Binding StrokeThickness}"/>
                                                                         </ControlTemplate>
                                                                     </Button.Template>
                                                                 </Button>
@@ -286,7 +286,7 @@
                                                         </ItemsControl.ItemTemplate>
                                                     </ItemsControl>
                                                     <!-- Cor personalizada: digite um código como #FF8800 e aperte Enter -->
-                                                    <TextBox Width="64" Text="#" Classes="small"
+                                                    <TextBox Width="64" Text="{Binding ColorText, Mode=OneWay}" Classes="small"
                                                              ToolTip.Tip="Cor personalizada (ex.: #FF8800) + Enter"
                                                              KeyDown="CustomColor_KeyDown"/>
                                                 </WrapPanel>

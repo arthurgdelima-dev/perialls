@@ -47,6 +47,13 @@ Não substitui os apps das marcas (G Hub, Synapse etc.). É só uma tela simples
 4. Clique em **Atualizar** sempre que conectar ou desconectar um aparelho. O app não fica
    verificando sozinho.
 
+**O app não muda nada sozinho.** Ao abrir, ele só lê os aparelhos. Cor, DPI, Hz e o resto só são
+enviados quando você muda algo na tela. A última escolha de cada aparelho fica em
+`%AppData%\Perialls\settings.json` (no Linux, `~/.config/Perialls/settings.json`), só para mostrar na tela
+o que você escolheu quando o aparelho não informa o próprio estado. Ela não é reaplicada ao abrir.
+Quando o aparelho tem memória própria e o OpenRGB ou o driver sabem gravar nela, a configuração também
+fica gravada no aparelho.
+
 Dê **dois cliques no nome** de um aparelho para renomear (Enter salva, Esc cancela, deixar vazio volta
 ao nome original). Os nomes ficam em `%AppData%\Perialls\nomes.txt` (no Linux, `~/.config/Perialls/nomes.txt`).
 

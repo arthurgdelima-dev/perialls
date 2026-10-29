@@ -225,7 +225,15 @@ public static class DriverCatalog
             device.Driver = driver;
             var key = device.Key + "|" + driver.Name;
             if (!Values.TryGetValue(key, out var values))
+            {
+                // O aparelho não informa o estado: começa com a última escolha salva (só para mostrar).
                 Values[key] = values = new Dictionary<string, int>(driver.InitialValues);
+                foreach (var (name, value) in UserSettings.Current.Find(device)?.Values ?? [])
+                {
+                    if (values.ContainsKey(name) && value is >= 0 and <= 255)
+                        values[name] = value;
+                }
+            }
             device.DriverValues = values;
         }
 

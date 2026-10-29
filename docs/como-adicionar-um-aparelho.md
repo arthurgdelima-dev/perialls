@@ -78,6 +78,7 @@ Comece copiando o [`drivers/_modelo.json`](../drivers/_modelo.json). Os campos:
 | `delayMs` | Espera mínima entre dois comandos (0 a 2000 ms). |
 | `defaults` | Valores iniciais de variáveis que não são controles. |
 | `controls` | Os controles que aparecem no cartão. |
+| `save` | Opcional. Comando que grava a configuração na memória do aparelho (`bytes` e, se precisar, `checksumAt`). O app manda depois de cada mudança, para valer mesmo sem o app. Passa pelas mesmas regras dos controles. |
 
 Cada controle tem `bytes`: o pacote, com números hex (`07`) e variáveis entre chaves (`{brightness}`).
 O resto do pacote é completado com zeros. **O primeiro byte é o comando e precisa ser fixo.**
@@ -92,6 +93,9 @@ Há três tipos de controle:
 Uma variável pode aparecer no comando de vários controles. Por exemplo, se o aparelho manda cor, brilho
 e efeito sempre no mesmo pacote, todos os controles usam o mesmo `bytes`, e o app preenche cada variável
 com o valor atual.
+
+O app nunca manda nada sozinho ao abrir: os comandos só saem quando a pessoa muda algo na tela. Como
+um driver JSON não lê o estado do aparelho, a tela mostra a última escolha salva (ou o `default`).
 
 Os nomes `brightness`, `speed`, `effect`, `direction`, `pollingRate` e `dpi` já ganham um título em
 português. Para outros, use `label`.

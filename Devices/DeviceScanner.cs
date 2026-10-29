@@ -27,6 +27,8 @@ public static class DeviceScanner
         ["258A"] = "Redragon",
     };
 
+    // Regra: a busca só LÊ. Nada aqui manda cor, DPI, Hz ou outra configuração para os aparelhos;
+    // comandos só saem quando você muda algo na tela (veja MainWindow).
     public static ScanResult Scan()
     {
         // 1) Pergunta ao sistema quais aparelhos estão conectados, já com as partes de cada um juntas.
@@ -84,6 +86,8 @@ public static class DeviceScanner
             }
 
             row.RgbLocation = rgb.Location;
+            if (rgb.Colors.Length > 0)
+                row.ReportedColor = $"#{rgb.Colors[0].R:X2}{rgb.Colors[0].G:X2}{rgb.Colors[0].B:X2}";
 
             // Aparelhos que estavam como "Outro" ganham o nome e o tipo que o OpenRGB conhece.
             if (row.Kind is "" or "Outro")

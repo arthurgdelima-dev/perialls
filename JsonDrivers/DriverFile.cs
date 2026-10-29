@@ -27,6 +27,9 @@ public sealed class Driver
 
     public List<DriverControl> Controls { get; private init; } = [];
 
+    // Comando que grava na memória do aparelho (opcional). Vai depois de cada mudança.
+    public DriverControl? SaveCommand { get; private init; }
+
     // Valores iniciais de todas as variáveis ({r}, {brightness}...), antes de você mexer.
     public IReadOnlyDictionary<string, int> InitialValues { get; private init; } = new Dictionary<string, int>();
 
@@ -144,12 +147,10 @@ public sealed class Driver
         }
 
         var controls = new List<DriverControl>();
-        foreach (var (key, c) in spec.Controls)
+        // Confere um comando: tamanho, checksum, e o primeiro byte (o comando) fixo e não proibido.
+        DriverControl Check(DriverControl control, int? at)
         {
-            Require(VariableName.IsMatch(key), $"nome de controle inválido: {key}");
-            var control = ReadControl(key, c, values);
-
-            var at = c.ChecksumAt ?? spec.ChecksumAt;
+            var key = control.Key;
             if (checksum == "ff-minus-sum")
             {
                 Require(at is { } p && p >= control.Bytes.Count && p < iface.ReportLength,
@@ -157,7 +158,6 @@ public sealed class Driver
             }
             Require(control.Bytes.Count <= iface.ReportLength, $"\"{key}\": o comando é maior que \"reportLength\"");
 
-            // O primeiro byte é o comando: precisa ser fixo, e não pode ser um dos proibidos.
             var command = control.Bytes[0].Literal
                 ?? throw new DriverException($"\"{key}\": o primeiro byte (o comando) precisa ser fixo, não uma variável");
             foreach (var vid in vendors)
@@ -165,12 +165,25 @@ public sealed class Driver
                 Require(!BlockedCommands.TryGetValue(vid, out var blocked) || !blocked.Contains(command),
                     $"\"{key}\": o comando {command:X2} é proibido para este fabricante (firmware, reset ou mapa de teclas)");
             }
+            return control with { ChecksumAt = checksum == "ff-minus-sum" ? at : null };
+        }
 
-            controls.Add(control with { ChecksumAt = checksum == "ff-minus-sum" ? at : null });
+        foreach (var (key, c) in spec.Controls)
+        {
+            Require(VariableName.IsMatch(key), $"nome de controle inválido: {key}");
+            controls.Add(Check(ReadControl(key, c, values), c.ChecksumAt ?? spec.ChecksumAt));
+        }
+
+        // "save": comando que grava a configuração na memória do aparelho, enviado depois de cada mudança.
+        DriverControl? save = null;
+        if (spec.Save is { } s)
+        {
+            Require(s.Min == null && s.Max == null && s.Options == null, "\"save\" só usa \"bytes\" e \"checksumAt\"");
+            save = Check(new DriverControl("save", "", DriverControlKind.Command, ParseBytes("save", s.Bytes)), s.ChecksumAt ?? spec.ChecksumAt);
         }
 
         // Toda variável usada num comando precisa ter um valor.
-        foreach (var c in controls)
+        foreach (var c in save == null ? controls : controls.Append(save))
         {
             foreach (var v in c.Bytes.Where(t => t.Variable != null).Select(t => t.Variable!))
                 Require(values.ContainsKey(v), $"\"{c.Key}\" usa {{{v}}}, que não tem valor (declare em \"defaults\")");
@@ -189,6 +202,7 @@ public sealed class Driver
             HasChecksum = checksum == "ff-minus-sum",
             DelayMs = spec.DelayMs,
             Controls = controls,
+            SaveCommand = save,
             InitialValues = values,
         };
     }
@@ -329,7 +343,8 @@ public sealed class Driver
 
 public sealed class DriverException(string message) : Exception(message);
 
-public enum DriverControlKind { Color, Range, Options }
+// Command: um comando sem controle na tela (o "save").
+public enum DriverControlKind { Color, Range, Options, Command }
 
 // Um controle pronto para usar: o comando já separado em bytes fixos e variáveis.
 public sealed record DriverControl(string Key, string Label, DriverControlKind Kind, List<DriverToken> Bytes)
@@ -358,6 +373,7 @@ public sealed class DriverSpec
     public int DelayMs { get; set; }
     public Dictionary<string, int> Defaults { get; set; } = [];
     public Dictionary<string, ControlSpec> Controls { get; set; } = [];
+    public ControlSpec? Save { get; set; }
 }
 
 public sealed class DeviceSpec

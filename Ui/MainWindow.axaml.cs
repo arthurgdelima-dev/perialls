@@ -52,6 +52,7 @@ public partial class MainWindow : Window
                 d.OriginalName = d.Name;
                 d.IsHidden = _hidden.Contains(d.Key);
                 d.Photo = DevicePhotos.Find(d);
+                d.SavedColor = UserSettings.Current.Find(d)?.Color;
                 if (_names.TryGetValue(d.Key, out var custom))
                     d.Name = custom;
                 DriverCatalog.Describe(d);
@@ -302,6 +303,7 @@ public partial class MainWindow : Window
                     };
                 await Task.Run(() => MonsGeekKeyboard.SetLighting(lighting));
                 device.KeyboardLighting = lighting;
+                RememberLighting(device, lighting);
             }
             else if (device.Driver?.Controls.FirstOrDefault(c => c.Kind == DriverControlKind.Color) is { } colorControl)
             {
@@ -310,11 +312,15 @@ public partial class MainWindow : Window
             else if (device.RgbLocation != null)
             {
                 await Task.Run(() => OpenRgb.SetColor(device.RgbLocation, r, g, b));
+                device.ReportedColor = ColorText(r, g, b);
             }
             else
             {
                 return "não tem RGB";
             }
+
+            device.SavedColor = ColorText(r, g, b);
+            UserSettings.Current.Remember(device, s => s.Color = device.SavedColor);
             return null;
         }
         catch (DriverException ex)
@@ -385,7 +391,21 @@ public partial class MainWindow : Window
         await Task.Run(() => DriverRunner.Send(driver, control, values, device));
         foreach (var (key, value) in sets)
             device.DriverValues[key] = value;
+        UserSettings.Current.Remember(device, s =>
+        {
+            foreach (var (key, value) in sets)
+                s.Values[key] = value;
+        });
     }
+
+    // Anota a iluminação do teclado Akko escolhida (o próprio teclado também guarda).
+    private static void RememberLighting(DeviceInfo device, MonsGeekKeyboard.Lighting lighting) =>
+        UserSettings.Current.Remember(device, s =>
+        {
+            s.Values["effect"] = lighting.Effect;
+            s.Values["brightness"] = lighting.Brightness;
+            s.Values["speed"] = lighting.Speed;
+        });
 
     private async void DpiPreset_Click(object? sender, RoutedEventArgs e)
     {
@@ -410,6 +430,7 @@ public partial class MainWindow : Window
         {
             await Task.Run(() => LogitechHidpp.SetDpi(device.LogitechProductId, device.LogitechIndex, dpi));
             device.Dpi = dpi;
+            UserSettings.Current.Remember(device, s => s.Dpi = dpi);
             ShowDevices(); // redesenha os cartões com o DPI novo
             StatusText.Text = $"DPI {dpi} aplicado: {device.Name}";
         }
@@ -447,6 +468,7 @@ public partial class MainWindow : Window
         {
             await Task.Run(() => MonsGeekKeyboard.SetLighting(lighting));
             device.KeyboardLighting = lighting;
+            RememberLighting(device, lighting);
             ShowDevices();
             StatusText.Text = $"{message}: {device.Name}";
         }
@@ -464,6 +486,7 @@ public partial class MainWindow : Window
         {
             await Task.Run(() => MonsGeekKeyboard.SetReportRate(hz));
             device.ReportRateHz = hz;
+            UserSettings.Current.Remember(device, s => s.ReportRateHz = hz);
             ShowDevices();
             StatusText.Text = $"{hz} Hz aplicado: {device.Name}";
         }

@@ -10,9 +10,12 @@ public static class DriverRunner
     private static readonly object WriteLock = new();
     private static readonly Dictionary<string, DateTime> LastWrite = [];
 
+    // Manda o comando do controle e, se o driver tiver, o "save" que grava na memória do aparelho.
     public static void Send(Driver driver, DriverControl control, IReadOnlyDictionary<string, int> values, DeviceInfo device)
     {
-        var data = driver.Build(control, values);
+        List<byte[]> packets = [driver.Build(control, values)];
+        if (driver.SaveCommand is { } save)
+            packets.Add(driver.Build(save, values));
 
         // Aparelhos com driver embutido nunca recebem comandos de um driver JSON.
         var targets = driver.HardwareIds.Where(id => device.HardwareIds.Contains(id) && !DriverCatalog.BuiltInDevices.Contains(id)).ToList();
@@ -47,23 +50,26 @@ public static class DriverRunner
 
         using (stream)
         {
-            // [report ID] + dados, completando com zeros até o tamanho que o aparelho espera.
-            var buffer = new byte[length];
-            buffer[0] = driver.ReportId;
-            data.CopyTo(buffer, 1);
-
-            lock (WriteLock)
+            foreach (var data in packets)
             {
-                var key = driver.Name;
-                var wait = LastWrite.GetValueOrDefault(key).AddMilliseconds(driver.DelayMs) - DateTime.UtcNow;
-                if (wait > TimeSpan.Zero)
-                    Thread.Sleep(wait);
+                // [report ID] + dados, completando com zeros até o tamanho que o aparelho espera.
+                var buffer = new byte[length];
+                buffer[0] = driver.ReportId;
+                data.CopyTo(buffer, 1);
 
-                if (driver.UsesFeatureReport)
-                    stream.SetFeature(buffer);
-                else
-                    stream.Write(buffer);
-                LastWrite[key] = DateTime.UtcNow;
+                lock (WriteLock)
+                {
+                    var key = driver.Name;
+                    var wait = LastWrite.GetValueOrDefault(key).AddMilliseconds(driver.DelayMs) - DateTime.UtcNow;
+                    if (wait > TimeSpan.Zero)
+                        Thread.Sleep(wait);
+
+                    if (driver.UsesFeatureReport)
+                        stream.SetFeature(buffer);
+                    else
+                        stream.Write(buffer);
+                    LastWrite[key] = DateTime.UtcNow;
+                }
             }
         }
     }

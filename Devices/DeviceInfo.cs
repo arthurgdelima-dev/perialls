@@ -22,6 +22,15 @@ public sealed class DeviceInfo
     public string? RgbLocation { get; set; }
     public bool HasRgb => RgbLocation != null || HasKeyboardLighting || DriverHasColor;
 
+    // Cor atual: a que o aparelho informa (teclado Akko, OpenRGB) ou, se ele não informa,
+    // a última que você escolheu (settings.json). Fica destacada nas bolinhas de cor.
+    public string? ReportedColor { get; set; }
+    public string? SavedColor { get; set; }
+    public string? CurrentColor => KeyboardLighting is { } k
+        ? (k.Brightness == 0 ? "#000000" : k.Multicolor ? null : $"#{k.R:X2}{k.G:X2}{k.B:X2}")
+        : ReportedColor ?? SavedColor;
+    public string ColorText => CurrentColor ?? "#";
+
     // Iluminação e Hz de teclados Akko/MonsGeek, pelo protocolo do driver oficial (sem OpenRGB).
     public MonsGeekKeyboard.Lighting? KeyboardLighting { get; set; }
     public bool HasKeyboardLighting => KeyboardLighting != null;
@@ -95,6 +104,9 @@ public sealed record Choice(DeviceInfo Device, int Value, bool IsCurrent);
 public sealed record ColorChoice(DeviceInfo? Device, string Hex)
 {
     public IBrush Brush { get; } = SolidColorBrush.Parse(Hex);
+    public bool IsCurrent => string.Equals(Device?.CurrentColor, Hex, StringComparison.OrdinalIgnoreCase);
+    public IBrush Stroke => IsCurrent ? Brushes.White : SolidColorBrush.Parse("#55555F");
+    public double StrokeThickness => IsCurrent ? 2 : 1;
 }
 
 // Um controle do driver JSON como aparece no cartão: título, valor atual e botões (ou lista, se forem muitos).

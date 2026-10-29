@@ -19,6 +19,9 @@
   "_defaults": "Valores iniciais de variáveis que não são controles (ex.: um modo fixo).",
   "defaults": { "direction": 0 },
 
+  "_save": "Opcional: comando que grava na memória do aparelho, enviado depois de cada mudança. Apague se o aparelho não tiver.",
+  "save": { "bytes": "00" },
+
   "_controls": "O cartão mostra só os controles daqui. Em bytes: números hex (07) ou variáveis ({r}, {brightness}). O 1º byte é o comando e precisa ser fixo.",
   "controls": {
     "color": { "bytes": "00 {r} {g} {b}" },
