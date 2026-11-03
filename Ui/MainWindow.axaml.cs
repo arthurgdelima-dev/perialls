@@ -328,9 +328,7 @@ public partial class MainWindow : Window
                         Brightness = current.Brightness == 0 ? (byte)4 : current.Brightness,
                         Effect = effect is { UsesColor: false } ? (byte)1 : current.Effect,
                     };
-                await Task.Run(() => MonsGeekKeyboard.SetLighting(lighting));
-                device.KeyboardLighting = lighting;
-                RememberLighting(device, lighting);
+                await SetKeyboardLightingAsync(device, lighting);
             }
             else if (device.Driver?.Controls.FirstOrDefault(c => c.Kind == DriverControlKind.Color) is { } colorControl)
             {
@@ -482,22 +480,30 @@ public partial class MainWindow : Window
     {
         try
         {
-            var saved = true;
-            if (device.Compx is { } compx)
-                dpi = await Task.Run(() => CompxMouse.SetDpi(compx, dpi));
-            else
-                saved = await Task.Run(() => LogitechHidpp.SetDpi(device.LogitechProductId, device.LogitechIndex, dpi));
-            device.Dpi = dpi;
-            device.DpiSaves = saved;
-            UserSettings.Current.Remember(device, s => s.Dpi = dpi);
+            var saved = await SetDpiAsync(device, dpi);
             ShowDevices(); // redesenha os cartões com o DPI novo
             StatusText.Text = Lang.T("status.forDevice",
-                Lang.T(saved ? "status.dpiSaved" : "status.valueSet", "DPI", dpi), device.Name);
+                Lang.T(saved ? "status.dpiSaved" : "status.valueSet", "DPI", device.Dpi), device.Name);
         }
         catch (Exception ex)
         {
             StatusText.Text = Lang.T("status.dpiFailed", ex.Message);
         }
+    }
+
+    // Muda o DPI (Compx grava na memória do mouse; Logitech grava no perfil onboard, se o mouse tiver).
+    // Retorna se ficou gravado no mouse. Os perfis usam o mesmo caminho.
+    private static async Task<bool> SetDpiAsync(DeviceInfo device, int dpi)
+    {
+        var saved = true;
+        if (device.Compx is { } compx)
+            dpi = await Task.Run(() => CompxMouse.SetDpi(compx, dpi));
+        else
+            saved = await Task.Run(() => LogitechHidpp.SetDpi(device.LogitechProductId, device.LogitechIndex, dpi));
+        device.Dpi = dpi;
+        device.DpiSaves = saved;
+        UserSettings.Current.Remember(device, s => s.Dpi = dpi);
+        return saved;
     }
 
     private async void KeyboardEffect_Changed(object? sender, SelectionChangedEventArgs e)
@@ -526,9 +532,7 @@ public partial class MainWindow : Window
     {
         try
         {
-            await Task.Run(() => MonsGeekKeyboard.SetLighting(lighting));
-            device.KeyboardLighting = lighting;
-            RememberLighting(device, lighting);
+            await SetKeyboardLightingAsync(device, lighting);
             ShowDevices();
             StatusText.Text = Lang.T("status.forDevice", message, device.Name);
         }
@@ -538,18 +542,21 @@ public partial class MainWindow : Window
         }
     }
 
+    // Os valores só mudam na tela se o envio deu certo. O próprio teclado guarda a iluminação.
+    private static async Task SetKeyboardLightingAsync(DeviceInfo device, MonsGeekKeyboard.Lighting lighting)
+    {
+        await Task.Run(() => MonsGeekKeyboard.SetLighting(lighting));
+        device.KeyboardLighting = lighting;
+        RememberLighting(device, lighting);
+    }
+
     private async void ReportRate_Click(object? sender, RoutedEventArgs e)
     {
         if ((sender as Control)?.DataContext is not Choice { Device: var device, Value: var hz })
             return;
         try
         {
-            if (device.Compx is { } compx)
-                await Task.Run(() => CompxMouse.SetReportRate(compx, hz));
-            else
-                await Task.Run(() => MonsGeekKeyboard.SetReportRate(hz));
-            device.ReportRateHz = hz;
-            UserSettings.Current.Remember(device, s => s.ReportRateHz = hz);
+            await SetReportRateAsync(device, hz);
             ShowDevices();
             StatusText.Text = Lang.T("status.forDevice", Lang.T("status.valueSet", Lang.T("control.pollingRate"), $"{hz} Hz"), device.Name);
         }
@@ -557,6 +564,19 @@ public partial class MainWindow : Window
         {
             StatusText.Text = Lang.T("status.rateFailed", ex.Message);
         }
+    }
+
+    // Hz do mouse Compx (gravado na memória dele) ou do teclado Akko. Só valores que o aparelho oferece.
+    private static async Task SetReportRateAsync(DeviceInfo device, int hz)
+    {
+        if (!device.ReportRates.Contains(hz))
+            throw new ArgumentException(Lang.T("error.badRate", hz));
+        if (device.Compx is { } compx)
+            await Task.Run(() => CompxMouse.SetReportRate(compx, hz));
+        else
+            await Task.Run(() => MonsGeekKeyboard.SetReportRate(hz));
+        device.ReportRateHz = hz;
+        UserSettings.Current.Remember(device, s => s.ReportRateHz = hz);
     }
 
     // Quantos cartões cabem por linha: cada um tem pelo menos 240 px de largura.
