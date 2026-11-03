@@ -42,6 +42,7 @@ public partial class MainWindow : Window
         LanguageButton.Content = Lang.Current == "pt-BR" ? "PT" : "EN";
         ShowProfiles();
         Opened += async (_, _) => await RefreshAsync();
+        Opened += async (_, _) => await CheckUpdateAsync();
     }
 
     private async void Refresh_Click(object? sender, RoutedEventArgs e) => await RefreshAsync();
@@ -97,6 +98,12 @@ public partial class MainWindow : Window
                 StatusText.Text += "\n" + catalogWarning;
             foreach (var problem in DriverCatalog.Problems)
                 StatusText.Text += "\n" + problem;
+
+            if (_startupNotice != null)
+            {
+                StatusText.Text += "\n" + _startupNotice;
+                _startupNotice = null;
+            }
 
             if (result.HidAccessDenied)
                 StatusText.Text += "\n" + Lang.T("status.hidDenied");

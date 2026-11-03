@@ -270,7 +270,11 @@ public static class OpenRgb
         try
         {
             if (_started is { HasExited: false })
+            {
                 _started.Kill(entireProcessTree: true);
+                // Espera fechar de verdade: a atualização troca a pasta dele logo em seguida.
+                _started.WaitForExit(5000);
+            }
         }
         catch
         {
