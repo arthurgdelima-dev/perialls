@@ -4,7 +4,6 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
-using System.Text.Json;
 using Avalonia.Threading;
 
 namespace Perialls;
@@ -78,7 +77,6 @@ public partial class MainWindow
     private static readonly FilePickerFileType JsonFiles = new("JSON") { Patterns = ["*.json"] };
 
     // Exportar: um arquivo .json com o perfil, para trocar com amigos ou levar para outro PC.
-    // Os números de série ficam de fora (no outro PC os aparelhos são outros).
     private async void ProfileExport_Click(object? sender, RoutedEventArgs e)
     {
         if (ProfileOf(sender) is not { } profile)
@@ -96,20 +94,9 @@ public partial class MainWindow
             if (file == null)
                 return;
 
-            var copy = new Profile
-            {
-                Name = profile.Name,
-                Color = profile.Color,
-                SyncColor = profile.SyncColor,
-                Devices = profile.Devices.Select(d => new ProfileDevice
-                {
-                    Id = d.Id, Name = d.Name, Color = d.Color, Dpi = d.Dpi, ReportRateHz = d.ReportRateHz,
-                    Values = d.Values == null ? null : new Dictionary<string, int>(d.Values),
-                }).ToList(),
-            };
             await using var stream = await file.OpenWriteAsync();
             stream.SetLength(0);
-            await JsonSerializer.SerializeAsync(stream, new ProfileFile { Profile = copy }, ProfileStore.Json);
+            await stream.WriteAsync(ProfileLogic.Export(profile));
             StatusText.Text = Lang.T("profiles.exported", profile.Name, file.Name);
         }
         catch (Exception ex)
@@ -161,38 +148,16 @@ public partial class MainWindow
     // Devolve a mensagem do rodapé: importado, ou o motivo de não ter importado.
     private string ImportProfile(byte[] data)
     {
-        if (data.Length > Profile.MaxFileBytes)
-            return Lang.T("profiles.importFailed", Lang.T("driver.tooBig"));
-
-        ProfileFile? file;
-        try
-        {
-            file = JsonSerializer.Deserialize<ProfileFile>(data, ProfileStore.Json);
-        }
-        catch (JsonException ex)
-        {
-            return Lang.T("profiles.importFailed", Lang.T("driver.brokenJson", ex.Message));
-        }
-        if (file?.Profile is not { } profile || file.App != "Perialls" || file.Format is < 1 or > Profile.Format)
-            return Lang.T("profiles.importFailed", Lang.T("profiles.notProfile"));
-        if (profile.Validate() is { } problem)
-            return Lang.T("profiles.importFailed", problem);
-
-        // Só os aparelhos que estão conectados aqui (pelo código USB; a série é de outro PC).
-        foreach (var entry in profile.Devices)
-            entry.Serial = null;
-        var kept = Match(profile, _devices).Select(x => x.Entry).ToList();
-        var ignored = profile.Devices.Except(kept).Select(d => d.Name ?? d.Id).ToList();
-        profile.Devices = kept;
-        if (kept.Count == 0 && profile.SyncColor == null)
-            return Lang.T("profiles.importNone");
+        var result = ProfileLogic.Import(data, _devices);
+        if (result.Profile is not { } profile)
+            return result.Error!;
 
         profile.Name = Store.UniqueName(profile.Name);
         Store.Profiles.Add(profile);
         if (!Store.Save())
             return Lang.T("profiles.saveFailed");
-        return Lang.T("profiles.imported", profile.Name, kept.Count)
-            + (ignored.Count > 0 ? " " + Lang.T("profiles.importIgnored", string.Join(", ", ignored)) : "");
+        return Lang.T("profiles.imported", profile.Name, profile.Devices.Count)
+            + (result.Ignored.Count > 0 ? " " + Lang.T("profiles.importIgnored", string.Join(", ", result.Ignored)) : "");
     }
 
     private async void ProfileApply_Click(object? sender, RoutedEventArgs e)
@@ -315,13 +280,13 @@ public partial class MainWindow
             // Ligar busca os aparelhos de novo, então o perfil é ligado aos aparelhos só depois.
             string? rgbError = null;
             var syncColor = profile.SyncColor;
-            if (syncColor != null ? OpenRgb.FindExe() != null : Match(profile, _devices).Any(x => x.Entry.Color != null && x.Device.NeedsOpenRgb))
+            if (syncColor != null ? OpenRgb.FindExe() != null : ProfileLogic.Match(profile, _devices).Any(x => x.Entry.Color != null && x.Device.NeedsOpenRgb))
             {
                 rgbError = await StartRgbAsync();
                 StatusText.Text = Lang.T("profiles.applying", profile.Name);
             }
 
-            var plan = Match(profile, _devices);
+            var plan = ProfileLogic.Match(profile, _devices);
             var missing = profile.Devices.Where(e => plan.All(x => x.Entry != e)).Select(e => e.Name ?? e.Id).ToList();
 
             // Sincronizar RGB: a cor vai também para os aparelhos com RGB que não estão no perfil
@@ -345,35 +310,19 @@ public partial class MainWindow
             ProfileStore.Current.Save();
             ShowDevices();
             ShowProfiles();
-            StatusText.Text = ProfileSummary(profile, results.SelectMany(r => r).ToList(), missing);
+            var all = results.SelectMany(r => r).ToList();
+            StatusText.Text = ProfileSummary(profile, all, missing);
+            foreach (var r in all.Where(r => r.Failed.Count > 0))
+                Diagnostics.RecordError(Lang.T("profiles.failed", $"{r.Device.Name} ({string.Join("; ", r.Failed)})"));
         }
         catch (Exception ex)
         {
-            StatusText.Text = Lang.T("profiles.applyFailed", profile.Name, ex.Message);
+            ShowFailure(Lang.T("profiles.applyFailed", profile.Name, ex.Message));
         }
         finally
         {
             _applyingProfile = false;
         }
-    }
-
-    // Liga cada aparelho do perfil a um aparelho conectado. A série, quando os dois sabem, desempata
-    // dois aparelhos iguais; cada aparelho conectado recebe no máximo uma entrada do perfil.
-    private static List<(ProfileDevice Entry, DeviceInfo Device)> Match(Profile profile, List<DeviceInfo> devices)
-    {
-        var free = devices.ToList();
-        var plan = new List<(ProfileDevice, DeviceInfo)>();
-        foreach (var entry in profile.Devices)
-        {
-            var device = free.FirstOrDefault(d => entry.Matches(d) && entry.Serial != null
-                    && string.Equals(entry.Serial, d.Serial, StringComparison.OrdinalIgnoreCase))
-                ?? free.FirstOrDefault(entry.Matches);
-            if (device == null)
-                continue; // não está conectado: é pulado
-            free.Remove(device);
-            plan.Add((entry, device));
-        }
-        return plan;
     }
 
     // O que deu certo e o que falhou num aparelho.
@@ -408,7 +357,7 @@ public partial class MainWindow
         if (device.KeyboardLighting is { } current && (color != null || values.Count > 0))
         {
             await Try(Lang.T("profiles.lighting"), async () =>
-                await SetKeyboardLightingAsync(device, KeyboardLighting(current, values, color)));
+                await SetKeyboardLightingAsync(device, ProfileLogic.KeyboardLighting(current, values, color)));
             if (color != null && applied.Count > 0)
             {
                 device.SavedColor = color.ToUpperInvariant();
@@ -417,7 +366,7 @@ public partial class MainWindow
         }
         else if (color != null)
         {
-            var (r, g, b) = ParseHex(color);
+            var (r, g, b) = ProfileLogic.ParseHex(color);
             // Sem o OpenRGB, a cor de um aparelho que depende dele falha com o motivo de não ter ligado.
             var error = device.NeedsOpenRgb && rgbError != null ? Lang.T("status.rgbFailed", rgbError)
                 : await SetColorAsync(device, r, g, b);
@@ -428,18 +377,9 @@ public partial class MainWindow
         }
 
         // Driver JSON: só opções que o próprio driver oferece, como num clique.
-        if (device.Driver is { } driver && device.KeyboardLighting == null && values.Count > 0)
-        {
-            foreach (var control in driver.Controls.Where(c => c.Kind != DriverControlKind.Color))
-            {
-                var sets = control.Kind == DriverControlKind.Range
-                    ? values.TryGetValue(control.Key, out var v) && v >= control.Min && v <= control.Max
-                        ? new Dictionary<string, int> { [control.Key] = v } : null
-                    : control.Options.FirstOrDefault(o => o.Sets.All(kv => values.TryGetValue(kv.Key, out var x) && x == kv.Value))?.Sets;
-                if (sets != null)
-                    await Try(control.Label, () => SendDriverAsync(device, control, sets));
-            }
-        }
+        if (device.Driver is { } driver && device.KeyboardLighting == null)
+            foreach (var (control, sets) in ProfileLogic.DriverCommands(driver, values))
+                await Try(control.Label, () => SendDriverAsync(device, control, sets));
 
         if (entry.Dpi is int dpi)
         {
@@ -458,42 +398,6 @@ public partial class MainWindow
         }
 
         return new DeviceResult(device, applied, failed);
-    }
-
-    // A iluminação do perfil a partir da atual. Valores fora do que o teclado aceita ficam como estão.
-    // Mudar de efeito usa a opção padrão dele, como na lista do cartão.
-    private static MonsGeekKeyboard.Lighting KeyboardLighting(MonsGeekKeyboard.Lighting current, Dictionary<string, int> values, string? color)
-    {
-        var lighting = current;
-        if (values.TryGetValue("effect", out var id) && MonsGeekKeyboard.Effects.FirstOrDefault(e => e.Id == id) is { } effect
-            && effect.Id != current.Effect)
-            lighting = lighting with { Effect = effect.Id, Option = effect.DefaultOption };
-        if (values.TryGetValue("brightness", out var brightness) && brightness is >= 0 and <= 4)
-            lighting = lighting with { Brightness = (byte)brightness };
-        if (values.TryGetValue("speed", out var speed) && speed is >= 0 and <= 4)
-            lighting = lighting with { Speed = (byte)speed };
-
-        if (color != null)
-        {
-            // Preto apaga (brilho 0), como na bolinha preta do cartão.
-            var (r, g, b) = ParseHex(color);
-            lighting = (r, g, b) == (0, 0, 0)
-                ? lighting with { Brightness = 0 }
-                : lighting with
-                {
-                    R = r, G = g, B = b,
-                    Multicolor = false,
-                    Brightness = lighting.Brightness == 0 ? (byte)4 : lighting.Brightness,
-                };
-        }
-        return lighting;
-    }
-
-    // As cores do perfil já foram validadas (#RRGGBB).
-    private static (byte R, byte G, byte B) ParseHex(string hex)
-    {
-        var rgb = Convert.ToInt32(hex.TrimStart('#'), 16);
-        return ((byte)(rgb >> 16), (byte)(rgb >> 8), (byte)rgb);
     }
 
     // Rodapé: o que foi aplicado em cada aparelho, o que falhou e quem não estava conectado.

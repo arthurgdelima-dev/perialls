@@ -19,6 +19,13 @@ public partial class MainWindow : Window
     // O RGB (OpenRGB) já foi ligado e a busca já viu os aparelhos dele.
     private bool _rgbOn;
 
+    // A placa-mãe deste PC (lida uma vez, na primeira busca).
+    private BoardInfo? _board;
+    private bool _boardRead;
+
+    // Um envio de cor que passar disso conta como falha ("não respondeu"), para nunca ficar em silêncio.
+    private static readonly TimeSpan ColorTimeout = TimeSpan.FromSeconds(20);
+
     // Busca de fotos em andamento. Um novo Atualizar cancela a anterior.
     private CancellationTokenSource? _photoSearch;
 
@@ -51,7 +58,20 @@ public partial class MainWindow : Window
             var catalog = DriverCatalog.UpdateAsync();
             var result = await Task.Run(DeviceScanner.Scan);
             var catalogWarning = await catalog;
+            if (!_boardRead)
+            {
+                _board = await Task.Run(Motherboard.Read);
+                _boardRead = true;
+            }
             _devices = result.Devices;
+
+            // Primeiro o que cada aparelho tem (RGB, driver); depois a placa-mãe ganha o cartão dela e
+            // os aparelhos internos sem função saem. Só então os nomes, fotos e ocultos.
+            foreach (var d in _devices)
+                DriverCatalog.Describe(d);
+            Motherboard.Attach(_devices, _board, Motherboard.SmbusNotice(result.OpenRgbRunning));
+            DeviceScanner.DropUnusedInternal(_devices);
+            _devices = _devices.OrderBy(d => d.SortOrder).ThenBy(d => d.Name).ToList();
             foreach (var d in _devices)
             {
                 d.OriginalName = d.Name;
@@ -60,7 +80,7 @@ public partial class MainWindow : Window
                 d.SavedColor = UserSettings.Current.Find(d)?.Color;
                 if (_names.TryGetValue(d.Key, out var custom))
                     d.Name = custom;
-                DriverCatalog.Describe(d);
+                DriverCatalog.Describe(d); // de novo: o cartão da placa pode ter sido criado agora
             }
             ShowDevices();
 
@@ -81,6 +101,15 @@ public partial class MainWindow : Window
             if (result.HidAccessDenied)
                 StatusText.Text += "\n" + Lang.T("status.hidDenied");
 
+            // Teclado Akko/MonsGeek conectado, mas sem os controles: diz o porquê em vez de só sumir.
+            if (_devices.Any(d => d.HardwareIds.Contains(MonsGeekKeyboard.HardwareId) && !d.HasKeyboardLighting)
+                && MonsGeekKeyboard.LastProbe is { } probe)
+            {
+                var line = Lang.T("status.akkoNoControls", probe);
+                StatusText.Text += "\n" + line;
+                Diagnostics.RecordError(line);
+            }
+
             // Linux: sem a regra do udev do OpenRGB, ele não consegue abrir os aparelhos USB de RGB.
             if (OperatingSystem.IsLinux() && OpenRgb.FindExe() is { } exe
                 && LinuxDevices.UsbAccessDenied(_devices.Where(d => d.OpenRgbSupported)))
@@ -89,7 +118,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            StatusText.Text = Lang.T("status.scanError", ex.Message);
+            ShowFailure(Lang.T("status.scanError", ex.Message));
         }
         finally
         {
@@ -223,6 +252,41 @@ public partial class MainWindow : Window
         }
     }
 
+    // Mostra um erro no rodapé e guarda para o "Copiar diagnóstico".
+    private void ShowFailure(string message)
+    {
+        StatusText.Text = message;
+        Diagnostics.RecordError(message);
+    }
+
+    // "Copiar diagnóstico": sistema, versão, aparelhos, OpenRGB e últimos erros na área de transferência.
+    // Sem área de transferência, grava num arquivo e mostra onde.
+    private async void CopyDiagnostics_Click(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var openRgb = await Task.Run(OpenRgb.Describe);
+            var text = Diagnostics.Build(_devices, _board, openRgb, _rgbOn);
+            if (Clipboard is { } clipboard)
+            {
+                await clipboard.SetTextAsync(text);
+                StatusText.Text = Lang.T("status.diagnosticsCopied", text.Split('\n').Length);
+            }
+            else
+            {
+                var path = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "Perialls", "diagnostico.txt");
+                System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path)!);
+                await System.IO.File.WriteAllTextAsync(path, text);
+                StatusText.Text = Lang.T("status.diagnosticsSaved", path);
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowFailure(Lang.T("status.diagnosticsFailed", ex.Message));
+        }
+    }
+
     private async Task OpenLinkAsync(string url)
     {
         if (!await Launcher.LaunchUriAsync(new Uri(url)))
@@ -255,6 +319,7 @@ public partial class MainWindow : Window
         if (ParseColor(hex) is not { } color)
             return;
         var (r, g, b) = color;
+        StatusText.Text = Lang.T("status.sendingColor", ColorText(r, g, b), device.Name);
 
         // Primeira cor num aparelho do OpenRGB: liga o OpenRGB embutido e busca de novo (os cartões são recriados).
         if (device.NeedsOpenRgb)
@@ -266,8 +331,10 @@ public partial class MainWindow : Window
 
         var error = await SetColorAsync(device, r, g, b);
         ShowDevices();
-        StatusText.Text = error != null ? Lang.T("status.colorFailed", device.Name, error)
-            : Lang.T("status.forDevice", (r, g, b) == (0, 0, 0) ? Lang.T("status.ledsOff") : Lang.T("status.colorApplied", ColorText(r, g, b)), device.Name);
+        if (error != null)
+            ShowFailure(Lang.T("status.colorFailed", device.Name, error));
+        else
+            StatusText.Text = Lang.T("status.forDevice", (r, g, b) == (0, 0, 0) ? Lang.T("status.ledsOff") : Lang.T("status.colorApplied", ColorText(r, g, b)), device.Name);
     }
 
     // Sincronizar RGB: a mesma cor em todos os aparelhos com RGB (OpenRGB, drivers JSON e o teclado Akko).
@@ -305,13 +372,28 @@ public partial class MainWindow : Window
         ShowDevices();
 
         var failed = targets.Zip(errors).Where(x => x.Second != null).Select(x => $"{x.First.Name} ({x.Second})").ToList();
-        StatusText.Text = failed.Count == 0
-            ? Lang.T("status.syncDone", ColorText(r, g, b), targets.Count)
-            : Lang.T("status.syncPartial", ColorText(r, g, b), targets.Count - failed.Count, targets.Count, string.Join(", ", failed));
+        if (failed.Count == 0)
+            StatusText.Text = Lang.T("status.syncDone", ColorText(r, g, b), targets.Count);
+        else
+            ShowFailure(Lang.T("status.syncPartial", ColorText(r, g, b), targets.Count - failed.Count, targets.Count, string.Join(", ", failed)));
     }
 
     // Pinta um aparelho pelo caminho que ele tiver. Devolve null se deu certo, ou o motivo da falha.
+    // Todo caminho confere o resultado (o teclado e o OpenRGB são lidos de volta) e tem tempo-limite:
+    // nunca "dá certo" sem saber, nem fica esperando para sempre.
     private static async Task<string?> SetColorAsync(DeviceInfo device, byte r, byte g, byte b)
+    {
+        try
+        {
+            return await SendColorAsync(device, r, g, b).WaitAsync(ColorTimeout);
+        }
+        catch (TimeoutException)
+        {
+            return Lang.T("error.colorTimeout", (int)ColorTimeout.TotalSeconds);
+        }
+    }
+
+    private static async Task<string?> SendColorAsync(DeviceInfo device, byte r, byte g, byte b)
     {
         try
         {
@@ -344,6 +426,10 @@ public partial class MainWindow : Window
             {
                 return Lang.T("error.rgbNotFound");
             }
+            else if (device.HasBoardNotice)
+            {
+                return Lang.T("error.boardSmbus");
+            }
             else
             {
                 return Lang.T("error.noRgb");
@@ -370,7 +456,7 @@ public partial class MainWindow : Window
     {
         var error = await StartRgbAsync();
         if (error != null)
-            StatusText.Text = Lang.T("status.rgbFailed", error);
+            ShowFailure(Lang.T("status.rgbFailed", error));
         return error == null;
     }
 
@@ -399,7 +485,7 @@ public partial class MainWindow : Window
         if (hex.Length == 6 && int.TryParse(hex, NumberStyles.HexNumber, null, out var rgb))
             return ((byte)(rgb >> 16), (byte)(rgb >> 8), (byte)rgb);
 
-        StatusText.Text = Lang.T("status.invalidColor");
+        ShowFailure(Lang.T("status.invalidColor"));
         return null;
     }
 
@@ -429,11 +515,11 @@ public partial class MainWindow : Window
         }
         catch (DriverException ex)
         {
-            StatusText.Text = Lang.T("status.nothingSent", ex.Message);
+            ShowFailure(Lang.T("status.nothingSent", ex.Message));
         }
         catch (Exception ex)
         {
-            StatusText.Text = Lang.T("status.deviceFailed", ex.Message);
+            ShowFailure(Lang.T("status.deviceFailed", ex.Message));
         }
     }
 
@@ -494,7 +580,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            StatusText.Text = Lang.T("status.dpiFailed", ex.Message);
+            ShowFailure(Lang.T("status.dpiFailed", ex.Message));
         }
     }
 
@@ -545,7 +631,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            StatusText.Text = Lang.T("status.lightingFailed", ex.Message);
+            ShowFailure(Lang.T("status.lightingFailed", ex.Message));
         }
     }
 
@@ -569,7 +655,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            StatusText.Text = Lang.T("status.rateFailed", ex.Message);
+            ShowFailure(Lang.T("status.rateFailed", ex.Message));
         }
     }
 

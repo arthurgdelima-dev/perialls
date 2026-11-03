@@ -66,6 +66,12 @@ public static class DeviceScanner
         return new ScanResult(devices, openRgbRunning, hidBlocked);
     }
 
+    // Aparelhos internos (só no Windows) entram na busca para a controladora RGB da placa-mãe aparecer.
+    // Os que não têm nenhuma função (nem RGB, nem driver) saem da lista: são peças do próprio PC.
+    // Precisa rodar depois do DriverCatalog.Describe, que diz quem tem RGB ou driver.
+    public static void DropUnusedInternal(List<DeviceInfo> devices) =>
+        devices.RemoveAll(d => d.IsInternal && !d.IsMotherboardRgb && !d.HasRgb && d.Driver == null && d.DriverEntry == null);
+
     public sealed record ScanResult(List<DeviceInfo> Devices, bool OpenRgbRunning, bool HidAccessDenied);
 
     // Liga cada aparelho do OpenRGB à linha do mesmo aparelho USB (pelo código VID/PID).
@@ -89,6 +95,8 @@ public static class DeviceScanner
             }
 
             row.RgbLocation = rgb.Location;
+            if (rgb.Type == OpenRGB.NET.DeviceType.Motherboard)
+                row.IsMotherboardRgb = true;
             if (rgb.Colors.Length > 0)
                 row.ReportedColor = $"#{rgb.Colors[0].R:X2}{rgb.Colors[0].G:X2}{rgb.Colors[0].B:X2}";
 
@@ -189,7 +197,7 @@ public static class DeviceScanner
             return; // teclado ocupado ou respondeu errado: o cartão aparece sem os controles
         }
         if (state == null)
-            return; // não é um modelo que conhecemos
+            return; // não é um modelo que conhecemos (o motivo fica em MonsGeekKeyboard.LastProbe)
 
         row.Name = $"Akko/MonsGeek {state.Model}";
         row.KeyboardLighting = state.Lighting;
@@ -270,6 +278,7 @@ public static class DeviceScanner
             Battery = battery,
             SortOrder = order,
             IsBluetooth = isBluetooth,
+            IsInternal = others.All(p => p.IsInternal),
         };
         device.HardwareIds.AddRange(others.Select(p => p.HardwareId).OfType<string>().Distinct());
         device.Serial = others.Select(p => p.Serial).FirstOrDefault(s => !string.IsNullOrWhiteSpace(s))?.Trim();
@@ -370,8 +379,9 @@ public enum PartClass { Keyboard, Mouse, Controller, Audio, Bluetooth, Other }
 //   VendorId: código do fabricante (ex.: "046D"), para pôr o nome da marca na frente.
 //   Icon: tipo que o Bluetooth informa (ex.: "input-mouse"), para aparelhos desconectados.
 //   Serial: número de série USB, quando o aparelho informa (separa dois aparelhos iguais nos perfis).
+//   IsInternal: ligado por dentro do PC (Windows: no "contêiner" do próprio computador).
 public sealed record Part(PartClass Class, string Name, string? BusName = null, bool IsUsb = false,
-    string? HardwareId = null, string? VendorId = null, string? Icon = null, string? Serial = null);
+    string? HardwareId = null, string? VendorId = null, string? Icon = null, string? Serial = null, bool IsInternal = false);
 
 // As partes de um mesmo aparelho físico, com o status e a bateria que o sistema informa.
 public sealed record PartGroup(List<Part> Parts, string Status, string Battery);
