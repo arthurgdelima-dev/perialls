@@ -25,6 +25,7 @@ Não substitui os apps das marcas (G Hub, Synapse etc.). É só uma tela simples
 | Efeito, cor, brilho, velocidade e Hz | Teclado Akko/MonsGeek FUN60 PRO |
 | Funções extras por driver | Aparelhos com driver em [`drivers/`](drivers), baixado pelo próprio app |
 | Sincronizar RGB | A mesma cor em todos os aparelhos com RGB, com um clique |
+| Perfis | Cor, DPI, Hz e iluminação de todos os aparelhos, aplicados com um clique |
 
 ## Como usar
 
@@ -86,6 +87,28 @@ idioma do sistema.
 
 Passe o mouse num cartão para **ocultar** um aparelho que você não quer ver. O botão do olho na barra
 lateral mostra os ocultos de novo. A lista de ocultos fica em `%AppData%\Perialls\ocultos.txt` (no Linux, `~/.config/Perialls/ocultos.txt`).
+
+### Perfis
+
+O botão de **camadas** na barra lateral abre os perfis: um conjunto de configurações de vários aparelhos
+(ex.: "Jogo", "Trabalho", "Noite") que você aplica com um clique.
+
+- **Salvar como perfil:** digite um nome e clique (ou aperte Enter). O app guarda o que cada aparelho está
+  usando agora, só o que ele suporta: cor (ou a cor do *Sincronizar RGB*, se todos estiverem iguais), DPI,
+  Hz e a iluminação do teclado Akko ou os controles do driver JSON.
+- **Clicar num perfil aplica tudo.** O rodapé mostra o que foi aplicado, o que falhou e quais aparelhos não
+  estavam conectados (esses são pulados). O último perfil aplicado fica destacado.
+- Ao lado de cada perfil: renomear, atualizar com as configurações de agora, exportar e excluir (pede
+  confirmação). A bolinha troca a cor do perfil.
+- **Exportar/Importar:** o perfil vira um arquivo `.json` para trocar com amigos ou levar para outro PC
+  (sem os números de série). Ao importar, o arquivo é conferido antes e os aparelhos que você não tem
+  conectados ficam de fora.
+
+Um perfil **nunca é aplicado ao abrir o app**, só quando você clica. Ele usa os mesmos caminhos do clique
+manual: também grava na memória do aparelho quando ele tem (mouses Compx, perfis onboard da Logitech,
+comando *save* do driver JSON) e só liga o OpenRGB embutido se alguma cor precisar dele. Os aparelhos
+são identificados pelo VID/PID e, quando o aparelho informa, pelo número de série. Os perfis ficam em
+`%AppData%\Perialls\profiles.json` (no Linux, `~/.config/Perialls/profiles.json`).
 
 ### Drivers
 
