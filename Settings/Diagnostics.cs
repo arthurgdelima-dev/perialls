@@ -89,9 +89,13 @@ public static class Diagnostics
                 text.AppendLine($"    cor: atual {d.CurrentColor ?? "?"} (informada {d.ReportedColor ?? "-"}, salva {d.SavedColor ?? "-"})");
         }
 
-        text.AppendLine();
-        text.AppendLine("--- teclado Akko/MonsGeek ---");
-        text.AppendLine(MonsGeekKeyboard.LastProbe ?? "nenhuma busca");
+        // Só quando há um teclado Akko/MonsGeek conectado (a busca por ele só roda nesse caso).
+        if (devices.Any(d => d.HardwareIds.Contains(MonsGeekKeyboard.HardwareId)))
+        {
+            text.AppendLine();
+            text.AppendLine("--- teclado Akko/MonsGeek ---");
+            text.AppendLine(MonsGeekKeyboard.LastProbe ?? "nenhuma busca");
+        }
 
         text.AppendLine();
         text.AppendLine($"--- OpenRGB (RGB ligado: {(rgbOn ? "sim" : "não")}) ---");
