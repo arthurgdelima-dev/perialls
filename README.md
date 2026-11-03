@@ -110,6 +110,34 @@ comando *save* do driver JSON) e só liga o OpenRGB embutido se alguma cor preci
 são identificados pelo VID/PID e, quando o aparelho informa, pelo número de série. Os perfis ficam em
 `%AppData%\Perialls\profiles.json` (no Linux, `~/.config/Perialls/profiles.json`).
 
+### Atualizações
+
+O Perialls se atualiza com um clique, sem precisar ir ao GitHub.
+
+> **Tem uma versão anterior a esta?** O botão de atualizar só existe a partir desta versão. Se a sua
+> é mais antiga, [baixe a última versão](https://github.com/arthurgdelima-dev/perialls/releases/latest)
+> manualmente **uma última vez** e extraia por cima da pasta antiga. Depois disso, as próximas vêm pelo botão.
+
+- **Ao abrir**, o app faz **uma** consulta à última Release do GitHub, em segundo plano. Nada fica rodando
+  depois. Versões de teste (*pre-release*) são ignoradas, e as versões são comparadas como números
+  (`v0.10.0` é mais nova que `v0.9.0`). Sem internet, ou se o GitHub não responder, nada aparece.
+- Se houver versão nova, aparece um **botão discreto com uma seta para baixo** no pé da barra lateral.
+  Passe o mouse para ver a versão; clique para ler as notas.
+- **Nada é baixado sem você clicar em *Atualizar agora*.** Aí o app:
+  1. baixa o pacote do seu sistema (`Perialls-win-x64.zip` ou `Perialls-linux-x64.tar.gz`), mostrando o progresso;
+  2. confere o hash com o `SHA256SUMS.txt` da mesma Release. Se não bater, cancela sem mudar nada;
+  3. fecha o OpenRGB embutido, renomeia o executável atual para `.old` e põe o novo no lugar. A pasta
+     `openrgb` só é trocada se vier diferente;
+  4. abre a versão nova e fecha a antiga. A nova apaga os `.old`.
+- **Se algo der errado**, ele volta sozinho para a versão anterior e avisa no rodapé. Isso vale para erros
+  na troca e também se a versão nova não abrir: a antiga espera até 60 segundos, e se a nova não der sinal,
+  restaura os `.old` e continua aberta. Se a versão antiga tiver sido fechada nesse meio-tempo, abra o
+  `Perialls.exe.old` (no Linux, `Perialls.old`): ele se põe de volta no lugar.
+- **Seus dados não são tocados:** configurações, perfis, nomes, drivers baixados e fotos ficam fora da
+  pasta do app (em `%AppData%` e `%LocalAppData%`; no Linux, `~/.config` e `~/.local/share`).
+- Se a pasta do app não tiver **permissão de escrita** (ex.: dentro de *Arquivos de Programas*), o app avisa
+  e abre a página da Release para você baixar à mão.
+
 ### Drivers
 
 No canto de cada cartão aparece um ícone pequeno:
@@ -167,6 +195,15 @@ git push --tags
 Em alguns minutos aparece a Release com o `.zip` do Windows e o `.tar.gz` do Linux (os dois já com o
 OpenRGB, numa versão fixa e com o hash conferido), o código-fonte do OpenRGB, os hashes e as notas
 geradas a partir dos commits. Para acompanhar, veja a aba *Actions* do repositório.
+
+**Para o botão de atualizar aparecer** nos apps de quem já usa o Perialls, a Release precisa:
+
+- ter uma tag `vX.Y.Z` **maior** que a versão instalada (o número da tag vira a versão do app no CI);
+- **não** estar marcada como *pre-release* (marque assim para testar sem oferecer a todo mundo);
+- trazer os arquivos com estes nomes: `Perialls-win-x64.zip`, `Perialls-linux-x64.tar.gz` e
+  `SHA256SUMS.txt`. O workflow já gera tudo isso; não renomeie nem substitua os arquivos à mão depois.
+
+As notas da Release aparecem no painel do botão.
 
 ## Fotos dos aparelhos
 
