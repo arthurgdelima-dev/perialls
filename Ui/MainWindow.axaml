@@ -60,6 +60,12 @@
             <Setter Property="FontWeight" Value="Bold"/>
         </Style>
 
+        <!-- Perfil aplicado por último: fica destacado na lista. -->
+        <Style Selector="Button.profile.current">
+            <Setter Property="Background" Value="#2A2A30"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+        </Style>
+
         <Style Selector="TextBox.small">
             <Setter Property="MinHeight" Value="22"/>
             <Setter Property="Height" Value="22"/>
@@ -157,6 +163,86 @@
                                         <TextBox Width="64" Text="#" Classes="small" HorizontalAlignment="Left"
                                                  ToolTip.Tip="{local:T card.customColorTip}"
                                                  KeyDown="SyncCustomColor_KeyDown"/>
+                                    </StackPanel>
+                                </Flyout>
+                            </Button.Flyout>
+                        </Button>
+                        <!-- Perfis: salvar as configurações de todos os aparelhos e aplicar com um clique -->
+                        <Button x:Name="ProfilesButton" ToolTip.Tip="{local:T sidebar.profiles}"
+                                Classes="ghost" Margin="0,0,0,8">
+                            <Viewbox Width="20" Height="20">
+                                <Path Classes="line" Data="{x:Static local:Icons.Profiles}"/>
+                            </Viewbox>
+                            <Button.Flyout>
+                                <Flyout Placement="RightEdgeAlignedTop">
+                                    <StackPanel Width="260">
+                                        <TextBlock Classes="value" Margin="0,0,0,8" Text="{local:T profiles.title}"/>
+                                        <TextBlock x:Name="ProfilesEmpty" Text="{local:T profiles.empty}" FontSize="11"
+                                                   Foreground="#8A8A95" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                                        <ItemsControl x:Name="ProfileList">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Panel Margin="0,0,0,2">
+                                                        <!-- Normal: cor, nome (clique aplica) e ações -->
+                                                        <Grid ColumnDefinitions="Auto,*,Auto" IsVisible="{Binding IsNormal}">
+                                                            <Button Click="ProfileColor_Click" Cursor="Hand" VerticalAlignment="Center"
+                                                                    Margin="2,0,6,0" ToolTip.Tip="{local:T profiles.colorTip}">
+                                                                <Button.Template>
+                                                                    <ControlTemplate>
+                                                                        <Ellipse Width="12" Height="12" Fill="{Binding Brush}"/>
+                                                                    </ControlTemplate>
+                                                                </Button.Template>
+                                                            </Button>
+                                                            <Button Grid.Column="1" Classes="ghost profile" Classes.current="{Binding IsLast}"
+                                                                    Click="ProfileApply_Click" ToolTip.Tip="{Binding ApplyTip}"
+                                                                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Padding="6,4">
+                                                                <TextBlock Text="{Binding Profile.Name}" FontSize="12" TextTrimming="CharacterEllipsis"/>
+                                                            </Button>
+                                                            <StackPanel Grid.Column="2" Orientation="Horizontal">
+                                                                <Button Classes="ghost" Padding="4" Click="ProfileRename_Click" ToolTip.Tip="{local:T profiles.renameTip}">
+                                                                    <Viewbox Width="13" Height="13"><Path Classes="line" Stroke="#9A9AA5" Data="{x:Static local:Icons.Pencil}"/></Viewbox>
+                                                                </Button>
+                                                                <Button Classes="ghost" Padding="4" Click="ProfileUpdate_Click" ToolTip.Tip="{local:T profiles.updateTip}">
+                                                                    <Viewbox Width="13" Height="13"><Path Classes="line" Stroke="#9A9AA5" Data="{x:Static local:Icons.Refresh}"/></Viewbox>
+                                                                </Button>
+                                                                <Button Classes="ghost" Padding="4" Click="ProfileExport_Click" ToolTip.Tip="{local:T profiles.exportTip}">
+                                                                    <Viewbox Width="13" Height="13"><Path Classes="line" Stroke="#9A9AA5" Data="{x:Static local:Icons.Upload}"/></Viewbox>
+                                                                </Button>
+                                                                <Button Classes="ghost" Padding="4" Click="ProfileDelete_Click" ToolTip.Tip="{local:T profiles.deleteTip}">
+                                                                    <Viewbox Width="13" Height="13"><Path Classes="line" Stroke="#9A9AA5" Data="{x:Static local:Icons.Trash}"/></Viewbox>
+                                                                </Button>
+                                                            </StackPanel>
+                                                        </Grid>
+
+                                                        <!-- Renomear: Enter salva, Esc cancela -->
+                                                        <TextBox Classes="small" Text="{Binding Profile.Name, Mode=OneWay}" IsVisible="{Binding IsRenaming}"
+                                                                 MaxLength="40" ToolTip.Tip="{local:T profiles.renameBoxTip}"
+                                                                 AttachedToVisualTree="ProfileRenameBox_Attached" KeyDown="ProfileRenameBox_KeyDown"
+                                                                 LostFocus="ProfileRenameBox_LostFocus"/>
+
+                                                        <!-- Excluir: pede confirmação -->
+                                                        <StackPanel IsVisible="{Binding IsConfirmingDelete}" Margin="0,2,0,4">
+                                                            <TextBlock Text="{Binding DeleteQuestion}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,4"/>
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <Button Classes="ghost pill" Content="{local:T profiles.deleteYes}" Click="ProfileDeleteYes_Click"/>
+                                                                <Button Classes="ghost pill" Content="{local:T profiles.deleteNo}" Click="ProfileDeleteNo_Click"/>
+                                                            </StackPanel>
+                                                        </StackPanel>
+                                                    </Panel>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+
+                                        <Rectangle Height="1" Fill="#333338" Margin="0,6,0,8"/>
+                                        <!-- Salvar como perfil: nome + Enter (ou o botão) -->
+                                        <TextBox x:Name="NewProfileName" Classes="small" MaxLength="40"
+                                                 Watermark="{local:T profiles.newName}" KeyDown="NewProfileName_KeyDown"/>
+                                        <WrapPanel>
+                                            <Button Classes="ghost pill" Content="{local:T profiles.saveAs}" Click="SaveProfile_Click"
+                                                    ToolTip.Tip="{local:T profiles.saveAsTip}"/>
+                                            <Button Classes="ghost pill" Content="{local:T profiles.import}" Click="ImportProfile_Click"
+                                                    ToolTip.Tip="{local:T profiles.importTip}"/>
+                                        </WrapPanel>
                                     </StackPanel>
                                 </Flyout>
                             </Button.Flyout>

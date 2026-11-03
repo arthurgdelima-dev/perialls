@@ -25,6 +25,7 @@ It does not replace the brands' apps (G Hub, Synapse etc.). It is just a simple 
 | Effect, color, brightness, speed and polling rate | Akko/MonsGeek FUN60 PRO keyboard |
 | Extra features through drivers | Devices with a driver in [`drivers/`](drivers), downloaded by the app itself |
 | Sync RGB | The same color on every RGB device, in one click |
+| Profiles | Color, DPI, polling rate and lighting of every device, applied in one click |
 
 ## How to use
 
@@ -86,6 +87,28 @@ the app uses the system language.
 
 Hover over a card to **hide** a device you don't want to see. The eye button in the sidebar shows the
 hidden ones again. The hidden list is kept in `%AppData%\Perialls\ocultos.txt` (on Linux, `~/.config/Perialls/ocultos.txt`).
+
+### Profiles
+
+The **layers** button in the sidebar opens the profiles: a set of settings for several devices (e.g.
+"Gaming", "Work", "Night") that you apply in one click.
+
+- **Save as profile:** type a name and click (or press Enter). The app keeps what each device is using
+  right now, only what it supports: color (or the *Sync RGB* color, if they are all the same), DPI,
+  polling rate and the Akko keyboard lighting or the JSON driver controls.
+- **Click a profile to apply everything.** The footer shows what was applied, what failed and which
+  devices were not connected (those are skipped). The last applied profile is highlighted.
+- Next to each profile: rename, update with the current settings, export and delete (asks for
+  confirmation). The dot changes the profile's color.
+- **Export/Import:** the profile becomes a `.json` file to share with friends or take to another PC
+  (without serial numbers). When importing, the file is checked first and devices you don't have
+  connected are left out.
+
+A profile is **never applied when the app opens**, only when you click it. It uses the same paths as a
+manual click: it also saves to the device's memory when it has one (Compx mice, Logitech onboard
+profiles, the JSON driver's *save* command) and only turns on the bundled OpenRGB if some color needs it.
+Devices are identified by VID/PID and, when the device reports it, by serial number. Profiles are kept in
+`%AppData%\Perialls\profiles.json` (on Linux, `~/.config/Perialls/profiles.json`).
 
 ### Drivers
 
