@@ -166,6 +166,13 @@ public class DiagnosticsTests
     }
 
     [Fact]
+    public void AkkoSectionOnlyWithAkkoConnected()
+    {
+        var text = Diagnostics.Build([Device("VID_413C&PID_2113", "Dell KB216")], null, "", rgbOn: false);
+        Assert.DoesNotContain("Akko/MonsGeek", text);
+    }
+
+    [Fact]
     public void DeviceWithoutAnyPathSaysSo() =>
         Assert.StartsWith("nenhum", Diagnostics.PathUsed(Device("VID_1111&PID_2222")));
 
