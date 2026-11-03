@@ -3,6 +3,8 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
+using Avalonia.Platform.Storage;
+using System.Text.Json;
 using Avalonia.Threading;
 
 namespace Perialls;
@@ -71,6 +73,126 @@ public partial class MainWindow
     {
         StatusText.Text = Store.Save() ? message : Lang.T("profiles.saveFailed");
         ShowProfiles();
+    }
+
+    private static readonly FilePickerFileType JsonFiles = new("JSON") { Patterns = ["*.json"] };
+
+    // Exportar: um arquivo .json com o perfil, para trocar com amigos ou levar para outro PC.
+    // Os números de série ficam de fora (no outro PC os aparelhos são outros).
+    private async void ProfileExport_Click(object? sender, RoutedEventArgs e)
+    {
+        if (ProfileOf(sender) is not { } profile)
+            return;
+        ProfilesButton.Flyout?.Hide();
+        try
+        {
+            var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+            {
+                Title = Lang.T("profiles.exportTip"),
+                SuggestedFileName = $"perialls-{profile.Name}.json",
+                DefaultExtension = "json",
+                FileTypeChoices = [JsonFiles],
+            });
+            if (file == null)
+                return;
+
+            var copy = new Profile
+            {
+                Name = profile.Name,
+                Color = profile.Color,
+                SyncColor = profile.SyncColor,
+                Devices = profile.Devices.Select(d => new ProfileDevice
+                {
+                    Id = d.Id, Name = d.Name, Color = d.Color, Dpi = d.Dpi, ReportRateHz = d.ReportRateHz,
+                    Values = d.Values == null ? null : new Dictionary<string, int>(d.Values),
+                }).ToList(),
+            };
+            await using var stream = await file.OpenWriteAsync();
+            stream.SetLength(0);
+            await JsonSerializer.SerializeAsync(stream, new ProfileFile { Profile = copy }, ProfileStore.Json);
+            StatusText.Text = Lang.T("profiles.exported", profile.Name, file.Name);
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = Lang.T("profiles.exportFailed", ex.Message);
+        }
+    }
+
+    // Importar: confere o arquivo inteiro antes de usar e deixa de fora os aparelhos que não estão
+    // conectados aqui. Nada é aplicado: o perfil só entra na lista.
+    private async void ImportProfile_Click(object? sender, RoutedEventArgs e)
+    {
+        ProfilesButton.Flyout?.Hide();
+        if (Store.Profiles.Count >= ProfileStore.MaxProfiles)
+        {
+            StatusText.Text = Lang.T("profiles.tooMany", ProfileStore.MaxProfiles);
+            return;
+        }
+        try
+        {
+            var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                Title = Lang.T("profiles.importTip"),
+                AllowMultiple = false,
+                FileTypeFilter = [JsonFiles],
+            });
+            if (files.Count == 0)
+                return;
+
+            // Lê no máximo o limite + 1 byte: passou disso, o arquivo é grande demais.
+            byte[] data;
+            await using (var stream = await files[0].OpenReadAsync())
+            {
+                var buffer = new byte[Profile.MaxFileBytes + 1];
+                int total = 0, read;
+                while (total < buffer.Length && (read = await stream.ReadAsync(buffer.AsMemory(total))) > 0)
+                    total += read;
+                data = buffer[..total];
+            }
+            StatusText.Text = ImportProfile(data);
+            ShowProfiles();
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = Lang.T("profiles.importFailed", ex.Message);
+        }
+    }
+
+    // Devolve a mensagem do rodapé: importado, ou o motivo de não ter importado.
+    private string ImportProfile(byte[] data)
+    {
+        if (data.Length > Profile.MaxFileBytes)
+            return Lang.T("profiles.importFailed", Lang.T("driver.tooBig"));
+
+        ProfileFile? file;
+        try
+        {
+            file = JsonSerializer.Deserialize<ProfileFile>(data, ProfileStore.Json);
+        }
+        catch (JsonException ex)
+        {
+            return Lang.T("profiles.importFailed", Lang.T("driver.brokenJson", ex.Message));
+        }
+        if (file?.Profile is not { } profile || file.App != "Perialls" || file.Format is < 1 or > Profile.Format)
+            return Lang.T("profiles.importFailed", Lang.T("profiles.notProfile"));
+        if (profile.Validate() is { } problem)
+            return Lang.T("profiles.importFailed", problem);
+
+        // Só os aparelhos que estão conectados aqui (pelo código USB; a série é de outro PC).
+        foreach (var entry in profile.Devices)
+            entry.Serial = null;
+        var kept = Match(profile, _devices).Select(x => x.Entry).ToList();
+        var ignored = profile.Devices.Except(kept).Select(d => d.Name ?? d.Id).ToList();
+        profile.Devices = kept;
+        if (kept.Count == 0 && profile.SyncColor == null)
+            return Lang.T("profiles.importNone");
+
+        profile.Name = Store.UniqueName(profile.Name);
+        Store.Profiles.Add(profile);
+        if (!Store.Save())
+            return Lang.T("profiles.saveFailed");
+        return Lang.T("profiles.imported", profile.Name, kept.Count)
+            + (ignored.Count > 0 ? " " + Lang.T("profiles.importIgnored", string.Join(", ", ignored)) : "");
     }
 
     private async void ProfileApply_Click(object? sender, RoutedEventArgs e)

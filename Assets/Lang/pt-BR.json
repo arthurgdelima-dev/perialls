@@ -227,5 +227,16 @@
   "profiles.deleted": "Perfil \"{0}\" excluído.",
   "profiles.saveFailed": "Não deu para gravar o profiles.json.",
   "profiles.tooMany": "Limite de {0} perfis. Exclua um para salvar outro.",
-  "profiles.nothingToSave": "Nenhum aparelho com cor, DPI, Hz ou iluminação para guardar."
+  "profiles.nothingToSave": "Nenhum aparelho com cor, DPI, Hz ou iluminação para guardar.",
+
+  "profiles.exportTip": "Exportar como arquivo .json",
+  "profiles.import": "Importar",
+  "profiles.importTip": "Importar um perfil de um arquivo .json",
+  "profiles.exported": "Perfil \"{0}\" exportado para {1}.",
+  "profiles.exportFailed": "Não deu para exportar: {0}",
+  "profiles.importFailed": "Nada foi importado: {0}",
+  "profiles.notProfile": "o arquivo não é um perfil do Perialls",
+  "profiles.importNone": "Nada foi importado: nenhum aparelho desse perfil está conectado aqui.",
+  "profiles.imported": "Perfil \"{0}\" importado com {1} aparelhos. Clique nele para aplicar.",
+  "profiles.importIgnored": "Ignorados (não estão conectados aqui): {0}."
 }

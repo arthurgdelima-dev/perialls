@@ -205,6 +205,9 @@
                                                                 <Button Classes="ghost" Padding="4" Click="ProfileUpdate_Click" ToolTip.Tip="{local:T profiles.updateTip}">
                                                                     <Viewbox Width="13" Height="13"><Path Classes="line" Stroke="#9A9AA5" Data="{x:Static local:Icons.Refresh}"/></Viewbox>
                                                                 </Button>
+                                                                <Button Classes="ghost" Padding="4" Click="ProfileExport_Click" ToolTip.Tip="{local:T profiles.exportTip}">
+                                                                    <Viewbox Width="13" Height="13"><Path Classes="line" Stroke="#9A9AA5" Data="{x:Static local:Icons.Upload}"/></Viewbox>
+                                                                </Button>
                                                                 <Button Classes="ghost" Padding="4" Click="ProfileDelete_Click" ToolTip.Tip="{local:T profiles.deleteTip}">
                                                                     <Viewbox Width="13" Height="13"><Path Classes="line" Stroke="#9A9AA5" Data="{x:Static local:Icons.Trash}"/></Viewbox>
                                                                 </Button>
@@ -237,6 +240,8 @@
                                         <WrapPanel>
                                             <Button Classes="ghost pill" Content="{local:T profiles.saveAs}" Click="SaveProfile_Click"
                                                     ToolTip.Tip="{local:T profiles.saveAsTip}"/>
+                                            <Button Classes="ghost pill" Content="{local:T profiles.import}" Click="ImportProfile_Click"
+                                                    ToolTip.Tip="{local:T profiles.importTip}"/>
                                         </WrapPanel>
                                     </StackPanel>
                                 </Flyout>
