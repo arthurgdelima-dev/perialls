@@ -33,6 +33,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         LanguageButton.Content = Lang.Current == "pt-BR" ? "PT" : "EN";
+        ShowProfiles();
         Opened += async (_, _) => await RefreshAsync();
     }
 

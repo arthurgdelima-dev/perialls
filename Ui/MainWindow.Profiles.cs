@@ -1,3 +1,10 @@
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.Media;
+using Avalonia.Threading;
+
 namespace Perialls;
 
 // Perfis (a parte de aplicar). O app NUNCA aplica um perfil sozinho: só quando você clica nele.
@@ -7,6 +14,172 @@ public partial class MainWindow
 {
     // Um perfil sendo aplicado: os cliques em outro perfil esperam este terminar.
     private bool _applyingProfile;
+
+    // O perfil que está sendo renomeado ou esperando a confirmação para excluir (só um por vez).
+    private Profile? _renamingProfile;
+    private Profile? _deletingProfile;
+
+    private static ProfileStore Store => ProfileStore.Current;
+
+    // Redesenha a lista de perfis (o mesmo jeito dos cartões: monta a lista de novo).
+    private void ShowProfiles()
+    {
+        ProfileList.ItemsSource = Store.Profiles
+            .Select(p => new ProfileView(p, p.Name == Store.LastApplied, p == _renamingProfile, p == _deletingProfile))
+            .ToList();
+        ProfilesEmpty.IsVisible = Store.Profiles.Count == 0;
+        ToolTip.SetTip(ProfilesButton, Store.LastApplied is { } last && Store.Profiles.Any(p => p.Name == last)
+            ? Lang.T("sidebar.profilesLast", last)
+            : Lang.T("sidebar.profiles"));
+    }
+
+    private static Profile? ProfileOf(object? sender) => ((sender as Control)?.DataContext as ProfileView)?.Profile;
+
+    // Salvar como perfil: tira uma foto do que cada aparelho está usando agora.
+    private void SaveProfile_Click(object? sender, RoutedEventArgs e) => SaveNewProfile();
+
+    private void NewProfileName_KeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter)
+            SaveNewProfile();
+    }
+
+    private void SaveNewProfile()
+    {
+        if (Store.Profiles.Count >= ProfileStore.MaxProfiles)
+        {
+            StatusText.Text = Lang.T("profiles.tooMany", ProfileStore.MaxProfiles);
+            return;
+        }
+
+        var typed = (NewProfileName.Text ?? "").Trim();
+        var name = Store.UniqueName(typed != "" ? typed : Lang.T("profiles.defaultName", Store.Profiles.Count + 1));
+        var profile = Profile.Capture(name, Store.NextColor(), _devices);
+        if (profile.Devices.Count == 0 && profile.SyncColor == null)
+        {
+            StatusText.Text = Lang.T("profiles.nothingToSave");
+            return;
+        }
+
+        Store.Profiles.Add(profile);
+        NewProfileName.Text = "";
+        SaveProfiles(Lang.T("profiles.saved", name, profile.Devices.Count));
+    }
+
+    // Grava o profiles.json e mostra a mensagem (ou o erro, se não deu para gravar).
+    private void SaveProfiles(string message)
+    {
+        StatusText.Text = Store.Save() ? message : Lang.T("profiles.saveFailed");
+        ShowProfiles();
+    }
+
+    private async void ProfileApply_Click(object? sender, RoutedEventArgs e)
+    {
+        if (ProfileOf(sender) is not { } profile)
+            return;
+        ProfilesButton.Flyout?.Hide(); // para ver o rodapé
+        await ApplyProfileAsync(profile);
+    }
+
+    // A bolinha troca para a próxima cor da paleta.
+    private void ProfileColor_Click(object? sender, RoutedEventArgs e)
+    {
+        if (ProfileOf(sender) is not { } profile)
+            return;
+        var index = Array.FindIndex(Profile.Colors, c => string.Equals(c, profile.Color, StringComparison.OrdinalIgnoreCase));
+        profile.Color = Profile.Colors[(index + 1) % Profile.Colors.Length];
+        SaveProfiles(StatusText.Text ?? "");
+    }
+
+    // Atualizar: troca o que o perfil guarda pelas configurações de agora (mantém nome e cor).
+    private void ProfileUpdate_Click(object? sender, RoutedEventArgs e)
+    {
+        if (ProfileOf(sender) is not { } profile)
+            return;
+        var fresh = Profile.Capture(profile.Name, profile.Color, _devices);
+        if (fresh.Devices.Count == 0 && fresh.SyncColor == null)
+        {
+            StatusText.Text = Lang.T("profiles.nothingToSave");
+            return;
+        }
+        profile.Devices = fresh.Devices;
+        profile.SyncColor = fresh.SyncColor;
+        SaveProfiles(Lang.T("profiles.updated", profile.Name, profile.Devices.Count));
+    }
+
+    private void ProfileRename_Click(object? sender, RoutedEventArgs e)
+    {
+        _renamingProfile = ProfileOf(sender);
+        _deletingProfile = null;
+        ShowProfiles();
+    }
+
+    private void ProfileRenameBox_Attached(object? sender, VisualTreeAttachmentEventArgs e)
+    {
+        if (sender is TextBox { DataContext: ProfileView { IsRenaming: true } } box)
+            Dispatcher.UIThread.Post(() =>
+            {
+                box.Focus();
+                box.SelectAll();
+            }, DispatcherPriority.Loaded);
+    }
+
+    // Enter salva, Esc cancela. Nome vazio não muda nada; nome repetido ganha um número.
+    private void ProfileRenameBox_KeyDown(object? sender, KeyEventArgs e)
+    {
+        if (sender is not TextBox { DataContext: ProfileView { Profile: var profile } } box || e.Key is not (Key.Enter or Key.Escape))
+            return;
+        e.Handled = true;
+        _renamingProfile = null;
+
+        var name = (box.Text ?? "").Trim();
+        if (e.Key == Key.Escape || name == "" || name == profile.Name)
+        {
+            ShowProfiles();
+            return;
+        }
+
+        name = Store.UniqueName(name[..Math.Min(name.Length, Profile.MaxNameLength)], profile);
+        if (Store.LastApplied == profile.Name)
+            Store.LastApplied = name;
+        var old = profile.Name;
+        profile.Name = name;
+        SaveProfiles(Lang.T("profiles.renamed", old, name));
+    }
+
+    private void ProfileRenameBox_LostFocus(object? sender, RoutedEventArgs e)
+    {
+        if (sender is TextBox { DataContext: ProfileView { IsRenaming: true } })
+        {
+            _renamingProfile = null;
+            ShowProfiles();
+        }
+    }
+
+    // Excluir pede confirmação na própria linha.
+    private void ProfileDelete_Click(object? sender, RoutedEventArgs e)
+    {
+        _deletingProfile = ProfileOf(sender);
+        _renamingProfile = null;
+        ShowProfiles();
+    }
+
+    private void ProfileDeleteNo_Click(object? sender, RoutedEventArgs e)
+    {
+        _deletingProfile = null;
+        ShowProfiles();
+    }
+
+    private void ProfileDeleteYes_Click(object? sender, RoutedEventArgs e)
+    {
+        if (ProfileOf(sender) is not { } profile)
+            return;
+        _deletingProfile = null;
+        Store.Profiles.Remove(profile);
+        if (Store.LastApplied == profile.Name)
+            Store.LastApplied = null;
+        SaveProfiles(Lang.T("profiles.deleted", profile.Name));
+    }
 
     private async Task ApplyProfileAsync(Profile profile)
     {
@@ -49,6 +222,7 @@ public partial class MainWindow
             ProfileStore.Current.LastApplied = profile.Name;
             ProfileStore.Current.Save();
             ShowDevices();
+            ShowProfiles();
             StatusText.Text = ProfileSummary(profile, results.SelectMany(r => r).ToList(), missing);
         }
         catch (Exception ex)
@@ -217,4 +391,13 @@ public partial class MainWindow
             lines.Add(Lang.T("profiles.missing", string.Join(", ", missing)));
         return string.Join("\n", lines);
     }
+}
+
+// Uma linha da lista de perfis.
+public sealed record ProfileView(Profile Profile, bool IsLast, bool IsRenaming, bool IsConfirmingDelete)
+{
+    public bool IsNormal => !IsRenaming && !IsConfirmingDelete;
+    public IBrush Brush { get; } = SolidColorBrush.Parse(Profile.Color);
+    public string ApplyTip => Lang.T(IsLast ? "profiles.applyTipLast" : "profiles.applyTip", Profile.Name);
+    public string DeleteQuestion => Lang.T("profiles.deleteQuestion", Profile.Name);
 }

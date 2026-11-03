@@ -21,6 +21,10 @@ public static class Icons
     public static readonly Geometry Plus = Parse("M12,6 V18 M6,12 H18");
     public static readonly Geometry Sync = Parse("M12,3 C12,3 5.5,10 5.5,14.5 A6.5,6.5 0 0 0 18.5,14.5 C18.5,10 12,3 12,3 Z M9,15 A3,3 0 0 0 12,18");
     public static readonly Geometry Check = Parse("M6,12.5 L10,16.5 L18,8");
+    public static readonly Geometry Profiles = Parse("M12,3 L21,8 L12,13 L3,8 Z M3,12.5 L12,17.5 L21,12.5 M3,16.5 L12,21.5 L21,16.5");
+    public static readonly Geometry Pencil = Parse("M4,20 H8 L19,9 A2.1,2.1 0 0 0 15,5 L4,16 Z M13.5,6.5 L17.5,10.5");
+    public static readonly Geometry Trash = Parse("M4,7 H20 M9,7 V4.5 H15 V7 M6.5,7 L7.5,20 H16.5 L17.5,7 M10,11 V16 M14,11 V16");
+    public static readonly Geometry Upload = Parse("M12,15 V4 M7.5,8.5 L12,4 L16.5,8.5 M5,19.5 H19");
 
     // O ícone escolhido conforme o tipo do aparelho (propriedade Icon do DeviceInfo).
     public static readonly IValueConverter ForKind = new FuncValueConverter<string?, Geometry>(icon => icon switch
