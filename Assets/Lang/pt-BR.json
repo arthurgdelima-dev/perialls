@@ -238,5 +238,9 @@
   "profiles.notProfile": "o arquivo não é um perfil do Perialls",
   "profiles.importNone": "Nada foi importado: nenhum aparelho desse perfil está conectado aqui.",
   "profiles.imported": "Perfil \"{0}\" importado com {1} aparelhos. Clique nele para aplicar.",
-  "profiles.importIgnored": "Ignorados (não estão conectados aqui): {0}."
+  "profiles.importIgnored": "Ignorados (não estão conectados aqui): {0}.",
+  "update.button": "Atualizar para v{0}",
+  "update.noNotes": "Sem notas nesta versão.",
+  "update.now": "Atualizar agora",
+  "update.page": "Ver no GitHub"
 }

@@ -35,6 +35,7 @@ public partial class MainWindow : Window
         LanguageButton.Content = Lang.Current == "pt-BR" ? "PT" : "EN";
         ShowProfiles();
         Opened += async (_, _) => await RefreshAsync();
+        Opened += async (_, _) => await CheckUpdateAsync();
     }
 
     private async void Refresh_Click(object? sender, RoutedEventArgs e) => await RefreshAsync();
