@@ -22,6 +22,9 @@ public sealed class DeviceInfo : INotifyPropertyChanged
     // aparelho no OpenRGB e para lembrar quais aparelhos você ocultou.
     public List<string> HardwareIds { get; } = [];
 
+    // Número de série USB, quando o aparelho informa. Os perfis usam para separar dois aparelhos iguais.
+    public string? Serial { get; set; }
+
     // Endereço do aparelho no OpenRGB. Se estiver vazio, o aparelho não tem RGB controlável.
     public string? RgbLocation { get; set; }
     public bool HasRgb => RgbLocation != null || OpenRgbSupported || HasKeyboardLighting || DriverHasColor;

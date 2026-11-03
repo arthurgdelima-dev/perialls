@@ -272,6 +272,7 @@ public static class DeviceScanner
             IsBluetooth = isBluetooth,
         };
         device.HardwareIds.AddRange(others.Select(p => p.HardwareId).OfType<string>().Distinct());
+        device.Serial = others.Select(p => p.Serial).FirstOrDefault(s => !string.IsNullOrWhiteSpace(s))?.Trim();
         yield return device;
     }
 
@@ -368,8 +369,9 @@ public enum PartClass { Keyboard, Mouse, Controller, Audio, Bluetooth, Other }
 //   BusName: nome que o próprio aparelho informa pelo USB (ex.: "USB Receiver", "MYSTIC LIGHT").
 //   VendorId: código do fabricante (ex.: "046D"), para pôr o nome da marca na frente.
 //   Icon: tipo que o Bluetooth informa (ex.: "input-mouse"), para aparelhos desconectados.
+//   Serial: número de série USB, quando o aparelho informa (separa dois aparelhos iguais nos perfis).
 public sealed record Part(PartClass Class, string Name, string? BusName = null, bool IsUsb = false,
-    string? HardwareId = null, string? VendorId = null, string? Icon = null);
+    string? HardwareId = null, string? VendorId = null, string? Icon = null, string? Serial = null);
 
 // As partes de um mesmo aparelho físico, com o status e a bateria que o sistema informa.
 public sealed record PartGroup(List<Part> Parts, string Status, string Battery);

@@ -201,7 +201,8 @@ public static class LinuxDevices
             var vendor = Read(usb, "idVendor") ?? "";
             var product = Read(usb, "product");
             group.Parts.Add(new Part(PartClass.Other, product ?? Lang.T("device.usb"), BusName: product, IsUsb: true,
-                HardwareId: DeviceScanner.HardwareId(vendor, Read(usb, "idProduct") ?? ""), VendorId: vendor));
+                HardwareId: DeviceScanner.HardwareId(vendor, Read(usb, "idProduct") ?? ""), VendorId: vendor,
+                Serial: Read(usb, "serial")));
         }
         return groups[key] = group;
     }

@@ -95,7 +95,8 @@ public static class WindowsDevices
             BusName: p.BusName,
             IsUsb: p.Id.StartsWith(@"USB\"),
             HardwareId: HardwareId(p.Id),
-            VendorId: FindVendor(p.Id))).ToList();
+            VendorId: FindVendor(p.Id),
+            Serial: FindSerial(p.Id))).ToList();
 
         return new PartGroup(converted, status, battery);
     }
@@ -112,6 +113,22 @@ public static class WindowsDevices
     {
         var match = Regex.Match(deviceId, @"VID(?:_|&000[12])([0-9A-F]{4})", RegexOptions.IgnoreCase);
         return match.Success ? match.Groups[1].Value : null;
+    }
+
+    // Número de série USB: o fim do ID do aparelho USB ("USB\VID_046D&PID_C547\1234ABCD"). As partes
+    // HID ficam dentro dele, então subimos pelos "pais" (no máximo 3). Sem série, o Windows inventa um
+    // código com "&" (que muda conforme a porta), e esse não serve.
+    private static string? FindSerial(string deviceId)
+    {
+        var id = deviceId;
+        for (int i = 0; i < 4 && id != ""; i++)
+        {
+            var match = Regex.Match(id, @"^USB\\VID_[0-9A-F]{4}&PID_[0-9A-F]{4}\\([^\\&]+)$", RegexOptions.IgnoreCase);
+            if (match.Success)
+                return match.Groups[1].Value;
+            id = DeviceProperties.GetString(id, DeviceProperties.Parent) ?? "";
+        }
+        return null;
     }
 
     // Aparelhos Bluetooth de verdade (não o adaptador do PC nem serviços internos).

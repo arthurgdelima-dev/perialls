@@ -16,6 +16,9 @@ public static class DeviceProperties
     // Bateria (0 a 100) que o Windows lê de aparelhos Bluetooth que informam isso.
     public static readonly PropertyKey BluetoothBattery = new("104ea319-6ee2-4701-bd47-8ddbf425bbe5", 2);
 
+    // O aparelho "pai" (ex.: a parte HID de um mouse fica dentro do aparelho USB dele).
+    public static readonly PropertyKey Parent = new("4340a6c5-93fa-4706-972c-7b648008a5a7", 8);
+
     // Contêiner especial do Windows para coisas "de dentro do PC" (sem aparelho físico separado).
     public static readonly Guid InternalContainer = new("00000000-0000-0000-ffff-ffffffffffff");
 
