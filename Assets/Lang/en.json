@@ -188,5 +188,9 @@
   "error.rgbNotFound": "OpenRGB did not find this device",
   "error.openRgbMissing": "OpenRGB did not come bundled (openrgb folder) and is not installed",
   "error.openRgbClosed": "OpenRGB closed on its own",
-  "error.openRgbNoReply": "OpenRGB did not respond"
+  "error.openRgbNoReply": "OpenRGB did not respond",
+
+  "profile.badName": "the name must have 1 to {0} characters",
+  "profile.badField": "invalid \"{0}\" field",
+  "profile.badDevices": "\"devices\" must have at most {0} devices"
 }

@@ -188,5 +188,9 @@
   "error.rgbNotFound": "o OpenRGB não encontrou este aparelho",
   "error.openRgbMissing": "o OpenRGB não veio junto (pasta openrgb) e não está instalado",
   "error.openRgbClosed": "o OpenRGB fechou sozinho",
-  "error.openRgbNoReply": "o OpenRGB não respondeu"
+  "error.openRgbNoReply": "o OpenRGB não respondeu",
+
+  "profile.badName": "o nome precisa ter de 1 a {0} letras",
+  "profile.badField": "campo \"{0}\" inválido",
+  "profile.badDevices": "\"devices\" precisa ter no máximo {0} aparelhos"
 }
