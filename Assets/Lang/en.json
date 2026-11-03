@@ -245,8 +245,15 @@
   "update.page": "View on GitHub",
   "update.noPermission": "Can't update by itself: no write permission in the Perialls folder. I opened the new version's page so you can download it.",
   "update.downloading": "Downloading the update… {0}%",
-  "update.verified": "Download checked (SHA-256 hash matches).",
   "update.noHash": "The new version doesn't include the package hash (SHA256SUMS.txt). Update cancelled.",
   "update.hashMismatch": "The downloaded file doesn't match the published hash. Update cancelled; nothing was changed.",
-  "update.failed": "Couldn't update: {0}"
+  "update.failed": "Couldn't update: {0}",
+  "update.installing": "Installing the update…",
+  "update.restarting": "Restarting Perialls…",
+  "update.badPackage": "The downloaded package doesn't contain Perialls. Update cancelled; nothing was changed.",
+  "update.swapFailed": "Couldn't replace the files ({0}). Went back to the previous version.",
+  "update.rollbackFailed": "Couldn't go back to the previous version ({0}). Download the latest version from GitHub and extract it over this one.",
+  "update.newDidNotStart": "The new version didn't open. Went back to the previous one; nothing was lost.",
+  "update.done": "Perialls updated to v{0}.",
+  "update.restored": "The new version didn't work. Went back to v{0}."
 }

@@ -1,4 +1,6 @@
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 
@@ -9,9 +11,21 @@ public partial class MainWindow
 {
     private UpdateInfo? _update;
 
+    // "Atualizado para vX" (ou "voltei para vX"): aparece no rodapé ao fim da primeira busca.
+    private string? _startupNotice;
+
     // Uma consulta ao abrir, em segundo plano. Sem versão nova (ou sem internet), o botão nem aparece.
     private async Task CheckUpdateAsync()
     {
+        // Logo depois de uma atualização: avisa a versão antiga que esta abriu e conta no rodapé.
+        AppFolder.Current?.ConfirmStarted();
+        if (AppFolder.Current?.TakeStartupMessage() is { } message)
+            _startupNotice = Lang.T(message, Updater.Display(Updater.Current));
+
+        // Acabou de voltar de uma atualização que não abriu: não oferece de novo nesta sessão.
+        if (AppFolder.Current?.RunningFromOld == true)
+            return;
+
         _update = await Updater.CheckOnceAsync();
         if (_update == null)
             return;
@@ -26,8 +40,9 @@ public partial class MainWindow
     private async void UpdatePage_Click(object? sender, RoutedEventArgs e) =>
         await OpenLinkAsync(_update?.PageUrl ?? Updater.ReleasesPage);
 
-    // Só roda quando a pessoa clica. Baixa, confere o hash e (parte 3) troca os arquivos.
-    private bool _updating;
+    // Só roda quando a pessoa clica. Baixa, confere o hash, troca os arquivos e reinicia.
+    // Vale para o app todo: trocar o idioma recria a janela, mas não começa uma segunda atualização.
+    private static bool _updating;
 
     private async void UpdateNow_Click(object? sender, RoutedEventArgs e)
     {
@@ -67,7 +82,21 @@ public partial class MainWindow
             }, CancellationToken.None);
             downloading = false;
             UpdateProgress.IsVisible = false;
-            ShowUpdateStatus(Lang.T("update.verified"));
+
+            // O OpenRGB embutido fecha antes da troca (a pasta dele pode ser substituída).
+            ShowUpdateStatus(Lang.T("update.installing"));
+            OpenRgb.StopIfStarted();
+            _rgbOn = false;
+            await Task.Run(() => folder.Install(archive));
+
+            ShowUpdateStatus(Lang.T("update.restarting"));
+            if (await folder.StartNewAndWaitAsync())
+            {
+                // A nova abriu: esta fecha.
+                (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.Shutdown();
+                return;
+            }
+            ShowUpdateStatus(Lang.T("update.newDidNotStart"));
         }
         catch (Exception ex)
         {

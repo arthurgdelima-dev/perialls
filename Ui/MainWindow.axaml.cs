@@ -79,6 +79,12 @@ public partial class MainWindow : Window
             foreach (var problem in DriverCatalog.Problems)
                 StatusText.Text += "\n" + problem;
 
+            if (_startupNotice != null)
+            {
+                StatusText.Text += "\n" + _startupNotice;
+                _startupNotice = null;
+            }
+
             if (result.HidAccessDenied)
                 StatusText.Text += "\n" + Lang.T("status.hidDenied");
 
