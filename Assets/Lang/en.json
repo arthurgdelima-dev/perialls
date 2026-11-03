@@ -242,5 +242,11 @@
   "update.button": "Update to v{0}",
   "update.noNotes": "No notes for this version.",
   "update.now": "Update now",
-  "update.page": "View on GitHub"
+  "update.page": "View on GitHub",
+  "update.noPermission": "Can't update by itself: no write permission in the Perialls folder. I opened the new version's page so you can download it.",
+  "update.downloading": "Downloading the update… {0}%",
+  "update.verified": "Download checked (SHA-256 hash matches).",
+  "update.noHash": "The new version doesn't include the package hash (SHA256SUMS.txt). Update cancelled.",
+  "update.hashMismatch": "The downloaded file doesn't match the published hash. Update cancelled; nothing was changed.",
+  "update.failed": "Couldn't update: {0}"
 }

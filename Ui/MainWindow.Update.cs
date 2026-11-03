@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
 
 namespace Perialls;
 
@@ -25,8 +26,67 @@ public partial class MainWindow
     private async void UpdatePage_Click(object? sender, RoutedEventArgs e) =>
         await OpenLinkAsync(_update?.PageUrl ?? Updater.ReleasesPage);
 
-    private void UpdateNow_Click(object? sender, RoutedEventArgs e)
+    // Só roda quando a pessoa clica. Baixa, confere o hash e (parte 3) troca os arquivos.
+    private bool _updating;
+
+    private async void UpdateNow_Click(object? sender, RoutedEventArgs e)
     {
-        // Parte 2: baixar e conferir.
+        if (_update == null || _updating || AppFolder.Current is not { } folder)
+            return;
+
+        _updating = true;
+        UpdateNowButton.IsEnabled = false;
+        try
+        {
+            // Pasta sem permissão de escrita (ex.: Arquivos de Programas): avisa e abre a página da release.
+            if (!await Task.Run(folder.TryPrepare))
+            {
+                ShowUpdateStatus(Lang.T("update.noPermission"));
+                await OpenLinkAsync(_update.PageUrl);
+                return;
+            }
+
+            UpdateProgress.Value = 0;
+            UpdateProgress.IsVisible = true;
+            ShowUpdateStatus(Lang.T("update.downloading", 0));
+            var shown = 0;
+            var downloading = true;
+            var archive = await Updater.DownloadAsync(_update, folder, p =>
+            {
+                var percent = (int)(p * 100);
+                if (percent == shown)
+                    return;
+                shown = percent;
+                Dispatcher.UIThread.Post(() =>
+                {
+                    if (!downloading)
+                        return;
+                    UpdateProgress.Value = p;
+                    ShowUpdateStatus(Lang.T("update.downloading", percent));
+                });
+            }, CancellationToken.None);
+            downloading = false;
+            UpdateProgress.IsVisible = false;
+            ShowUpdateStatus(Lang.T("update.verified"));
+        }
+        catch (Exception ex)
+        {
+            folder.DeleteWork();
+            UpdateProgress.IsVisible = false;
+            ShowUpdateStatus(ex is UpdateException ? ex.Message : Lang.T("update.failed", ex.Message));
+        }
+        finally
+        {
+            _updating = false;
+            UpdateNowButton.IsEnabled = true;
+        }
+    }
+
+    // A mensagem aparece no painel e também no rodapé (o painel pode estar fechado).
+    private void ShowUpdateStatus(string text)
+    {
+        UpdateStatus.Text = text;
+        UpdateStatus.IsVisible = true;
+        StatusText.Text = text;
     }
 }

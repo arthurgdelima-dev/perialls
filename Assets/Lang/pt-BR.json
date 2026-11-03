@@ -242,5 +242,11 @@
   "update.button": "Atualizar para v{0}",
   "update.noNotes": "Sem notas nesta versão.",
   "update.now": "Atualizar agora",
-  "update.page": "Ver no GitHub"
+  "update.page": "Ver no GitHub",
+  "update.noPermission": "Não dá para atualizar sozinho: sem permissão de escrita na pasta do Perialls. Abri a página da versão nova para você baixar.",
+  "update.downloading": "Baixando a atualização… {0}%",
+  "update.verified": "Download conferido (hash SHA-256 confere).",
+  "update.noHash": "A versão nova não traz o hash do pacote (SHA256SUMS.txt). Atualização cancelada.",
+  "update.hashMismatch": "O arquivo baixado não confere com o hash publicado. Atualização cancelada; nada foi alterado.",
+  "update.failed": "Não deu para atualizar: {0}"
 }

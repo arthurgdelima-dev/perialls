@@ -1,9 +1,13 @@
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 
 namespace Perialls;
+
+// Um problema na atualização, com a mensagem pronta para mostrar.
+public sealed class UpdateException(string message) : Exception(message);
 
 // Uma versão nova publicada no GitHub, pronta para baixar.
 public sealed record UpdateInfo(Version Version, string Tag, string Notes, string PageUrl, string AssetName,
@@ -80,6 +84,61 @@ public static class Updater
             return null;
         }
     }
+
+    // Baixa o pacote para a pasta de trabalho e confere o hash com o SHA256SUMS.txt da mesma Release.
+    // Se não bater, apaga o arquivo e avisa. Devolve o caminho do pacote.
+    public static async Task<string> DownloadAsync(UpdateInfo info, AppFolder folder, Action<double> progress,
+        CancellationToken cancel)
+    {
+        using var sumsTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancel);
+        sumsTimeout.CancelAfter(TimeSpan.FromSeconds(30));
+        var sums = await Http.GetStringAsync(info.SumsUrl, sumsTimeout.Token);
+        var expected = FindHash(sums, info.AssetName) ?? throw new UpdateException(Lang.T("update.noHash"));
+
+        var archive = Path.Combine(folder.Work, info.AssetName);
+        using var response = await Http.GetAsync(info.AssetUrl, HttpCompletionOption.ResponseHeadersRead, cancel);
+        response.EnsureSuccessStatusCode();
+        var total = response.Content.Headers.ContentLength ?? 0;
+
+        string actual;
+        await using (var source = await response.Content.ReadAsStreamAsync(cancel))
+        await using (var file = File.Create(archive))
+        {
+            using var sha = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+            var buffer = new byte[81920];
+            long done = 0;
+            while (true)
+            {
+                // Se a conexão parar de mandar dados por 30 segundos, desiste (em vez de esperar para sempre).
+                using var stall = CancellationTokenSource.CreateLinkedTokenSource(cancel);
+                stall.CancelAfter(TimeSpan.FromSeconds(30));
+                var read = await source.ReadAsync(buffer, stall.Token);
+                if (read == 0)
+                    break;
+                await file.WriteAsync(buffer.AsMemory(0, read), cancel);
+                sha.AppendData(buffer, 0, read);
+                done += read;
+                if (total > 0)
+                    progress((double)done / total);
+            }
+            actual = Convert.ToHexString(sha.GetHashAndReset());
+        }
+
+        if (!actual.Equals(expected, StringComparison.OrdinalIgnoreCase))
+        {
+            File.Delete(archive);
+            throw new UpdateException(Lang.T("update.hashMismatch"));
+        }
+        return archive;
+    }
+
+    // Linha do sha256sum: "<hash>  <nome>" (ou "<hash> *<nome>").
+    private static string? FindHash(string sums, string name) =>
+        sums.Split('\n')
+            .Select(line => line.Split((char[]?)null, 2, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            .Where(parts => parts.Length == 2 && parts[1].TrimStart('*') == name && parts[0].Length == 64)
+            .Select(parts => parts[0])
+            .FirstOrDefault();
 
     // "v1.10.0" → 1.10.0. Compara como números: 1.10.0 é maior que 1.9.0.
     // O que vier depois de "-" ou "+" (ex.: v2.0.0-beta) é ignorado.
