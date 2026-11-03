@@ -167,12 +167,35 @@ Want to write a driver for a device? See [how to add a device](docs/como-adicion
   back in.
 - How the protocol works: [docs/protocolo-monsgeek.md](docs/protocolo-monsgeek.md) (in Portuguese).
 
+### Motherboard
+- The motherboard card uses the board's name (e.g. ASUS TUF GAMING A520M-PLUS).
+- Boards with a **USB** RGB controller (ASUS Aura USB, MSI Mystic Light, Gigabyte RGB Fusion 2,
+  ASRock Polychrome USB) work through OpenRGB with nothing extra. The TUF GAMING A520M-PLUS uses the
+  Aura USB `0B05:19AF`.
+- Boards with RGB on the **SMBus** (no USB device) need, on Windows, the [PawnIO](https://pawnio.eu)
+  driver and Perialls running as administrator; on Linux, the `i2c-dev` module. In that case the
+  board's card shows a note with what is missing.
+
+### When something doesn't work
+- If a color is not applied, the footer says why. The app reads the Akko keyboard and OpenRGB back
+  after sending, to check that the color took.
+- The **Copy diagnostics** button (sidebar, above the language) copies the system, the version, the
+  devices with VID/PID and the path used, the motherboard, the OpenRGB state and the recent errors.
+  Paste it into an issue or message.
+
 ## Building
 
 You need the [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0).
 
 ```
 dotnet run --project Perialls.csproj
+```
+
+Automated tests (profiles: validation, settings snapshot, which device gets what, export and import).
+They don't open the app and send nothing to the devices:
+
+```
+dotnet test tests/Perialls.Tests
 ```
 
 To build the single executable (about 45 MB, because .NET goes with it). You can build both from

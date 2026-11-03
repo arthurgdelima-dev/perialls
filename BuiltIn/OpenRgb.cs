@@ -54,8 +54,13 @@ public static class OpenRgb
             ?? device.Modes.FirstOrDefault(m => m.Name.Equals("Direct", StringComparison.OrdinalIgnoreCase));
 
         var color = new Color(r, g, b);
+        var modeSpecific = mode != null && mode.ColorMode == ColorMode.ModeSpecific;
 
-        if (mode != null && mode.ColorMode == ColorMode.ModeSpecific)
+        // Sem LEDs e sem cor no modo, não há onde pôr a cor: avisa em vez de "dar certo" sem mudar nada.
+        if (!modeSpecific && device.Leds.Length == 0)
+            throw new InvalidOperationException(Lang.T("error.openRgbNoLeds", device.Name));
+
+        if (modeSpecific && mode != null)
         {
             // Alguns aparelhos guardam a cor dentro do próprio modo, não em cada LED.
             var colors = Enumerable.Repeat(color, Math.Max(1, mode.Colors.Length)).ToArray();
@@ -67,6 +72,21 @@ public static class OpenRgb
                 client.UpdateMode(device.Index, mode.Index);
             client.UpdateLeds(device.Index, Enumerable.Repeat(color, device.Leds.Length).ToArray());
         }
+
+        // O OpenRGB não responde aos comandos de cor: lemos o aparelho de novo para conferir que ele aceitou.
+        // (Isso confirma o OpenRGB; se a placa ignorar o comando, nem ele fica sabendo.)
+        string? problem = null;
+        for (int attempt = 0; attempt < 4; attempt++)
+        {
+            Thread.Sleep(attempt == 0 ? 100 : 250);
+            var now = FindDevice(client, location);
+            var modeColors = modeSpecific && mode != null && mode.Index < now.Modes.Length ? now.Modes[mode.Index].Colors : null;
+            problem = CheckApplied(now.Colors, modeColors, color);
+            if (problem == null)
+                break;
+        }
+        if (problem != null)
+            throw new InvalidOperationException(Lang.T("error.openRgbIgnored", problem));
 
         // Aparelhos com memória própria: grava, para a cor continuar mesmo sem o OpenRGB aberto.
         if (mode != null && ((int)mode.Flags & ManualSaveFlag) != 0)
@@ -80,6 +100,52 @@ public static class OpenRgb
                 // OpenRGB antigo (sem esse comando): a cor já foi aplicada, só não fica gravada.
             }
         }
+    }
+
+    // Confere se as cores que o OpenRGB informa são a cor pedida. Com "modeColors" (cor guardada no
+    // modo), confere só essas. Devolve null se bate, ou o que ele informa.
+    internal static string? CheckApplied(Color[] ledColors, Color[]? modeColors, Color expected)
+    {
+        var colors = modeColors ?? ledColors;
+        if (colors.Length == 0)
+            return Lang.T("error.openRgbNoColors");
+        var wrong = colors.Where(c => c.R != expected.R || c.G != expected.G || c.B != expected.B).ToList();
+        if (wrong.Count == 0)
+            return null;
+        var first = wrong[0];
+        return Lang.T("error.openRgbWrongColors", wrong.Count, colors.Length, $"#{first.R:X2}{first.G:X2}{first.B:X2}");
+    }
+
+    // Como está o OpenRGB agora (para o "Copiar diagnóstico"): onde está, se fomos nós que abrimos,
+    // e os aparelhos que ele achou, com o endereço e o modo de cada um.
+    public static string Describe()
+    {
+        var lines = new List<string>
+        {
+            "exe: " + (FindExe() ?? "(não encontrado)"),
+            _started == null ? "aberto pelo Perialls: não"
+                : _started.HasExited ? $"aberto pelo Perialls: fechou (código {SafeExitCode(_started)})"
+                : $"aberto pelo Perialls: sim (PID {_started.Id})",
+        };
+        var devices = TryGetDevices();
+        if (devices == null)
+        {
+            lines.Add($"servidor SDK ({Host}:{Port}): não respondeu");
+            return string.Join("\n", lines);
+        }
+        lines.Add($"servidor SDK ({Host}:{Port}): respondeu, {devices.Length} aparelhos");
+        foreach (var d in devices)
+        {
+            var mode = d.ActiveModeIndex >= 0 && d.ActiveModeIndex < d.Modes.Length ? d.Modes[d.ActiveModeIndex].Name : "?";
+            lines.Add($"  - {d.Name} | tipo {d.Type} | {HardwareId(d) ?? "sem VID/PID"} | {d.Location} | modo {mode} | {d.Leds.Length} LEDs");
+        }
+        return string.Join("\n", lines);
+    }
+
+    private static string SafeExitCode(Process p)
+    {
+        try { return p.ExitCode.ToString(); }
+        catch { return "?"; }
     }
 
     // MODE_FLAG_MANUAL_SAVE do OpenRGB: o modo pode ser gravado na memória do aparelho.

@@ -166,12 +166,35 @@ Quer fazer o driver de um aparelho? Veja [como adicionar um aparelho](docs/como-
   de novo.
 - Como o protocolo funciona: [docs/protocolo-monsgeek.md](docs/protocolo-monsgeek.md).
 
+### Placa-mãe
+- O cartão da placa-mãe usa o nome da placa (ex.: ASUS TUF GAMING A520M-PLUS).
+- Placas com controladora RGB **USB** (ASUS Aura USB, MSI Mystic Light, Gigabyte RGB Fusion 2,
+  ASRock Polychrome USB) funcionam pelo OpenRGB sem nada a mais. A TUF GAMING A520M-PLUS usa a
+  Aura USB `0B05:19AF`.
+- Placas com RGB pelo **SMBus** (sem aparelho USB) precisam, no Windows, do driver
+  [PawnIO](https://pawnio.eu) e do Perialls aberto como administrador; no Linux, do módulo `i2c-dev`.
+  Nesse caso o cartão da placa mostra um aviso com o que falta.
+
+### Quando algo não funciona
+- Se uma cor não for aplicada, o rodapé diz o motivo. O app lê o teclado Akko e o OpenRGB de novo
+  depois de enviar, para conferir que a cor pegou.
+- O botão **Copiar diagnóstico** (barra lateral, acima do idioma) copia o sistema, a versão, os
+  aparelhos com VID/PID e o caminho usado, a placa-mãe, o estado do OpenRGB e os últimos erros.
+  Cole numa issue ou mensagem.
+
 ## Compilar
 
 Precisa do [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0).
 
 ```
 dotnet run --project Perialls.csproj
+```
+
+Testes automáticos (perfis: validação, foto das configurações, qual aparelho recebe o quê, exportar e
+importar). Não abrem o app e não enviam nada para os aparelhos:
+
+```
+dotnet test tests/Perialls.Tests
 ```
 
 Para gerar o executável único (cerca de 45 MB, porque o .NET vai junto). Dá para gerar os dois

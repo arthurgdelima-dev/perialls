@@ -115,6 +115,14 @@
                     <Button x:Name="LanguageButton" DockPanel.Dock="Bottom" Click="Language_Click"
                             ToolTip.Tip="{local:T sidebar.language}" Classes="ghost" Padding="6,4"
                             HorizontalAlignment="Center" Margin="0,0,0,12" FontSize="11" Foreground="#8A8A95"/>
+                    <!-- Copiar diagnóstico: sistema, aparelhos, OpenRGB e últimos erros, para mandar quando algo falha -->
+                    <Button x:Name="DiagnosticsButton" DockPanel.Dock="Bottom" Click="CopyDiagnostics_Click"
+                            ToolTip.Tip="{local:T sidebar.diagnostics}" Classes="ghost"
+                            HorizontalAlignment="Center" Margin="0,0,0,6">
+                        <Viewbox Width="18" Height="18">
+                            <Path Classes="line" Data="{x:Static local:Icons.Clipboard}"/>
+                        </Viewbox>
+                    </Button>
                     <!-- Versão nova no GitHub: só aparece quando existe uma (ver Update/Updater.cs) -->
                     <Button x:Name="UpdateButton" DockPanel.Dock="Bottom" IsVisible="False" Classes="ghost"
                             HorizontalAlignment="Center" Margin="0,0,0,6">
@@ -380,6 +388,10 @@
 
                                             <!-- Extras: cores (OpenRGB ou teclado Akko), DPI (Logitech ou Compx) e Hz -->
                                             <StackPanel Grid.Row="4" Margin="0,10,0,0">
+                                                <!-- Placa-mãe sem controladora RGB USB: explica o caminho do SMBus -->
+                                                <TextBlock IsVisible="{Binding HasBoardNotice}" Text="{Binding BoardNotice}"
+                                                           TextWrapping="Wrap" FontSize="11" Foreground="#E0B860"
+                                                           TextAlignment="Left" Margin="0,0,0,6"/>
                                                 <WrapPanel HorizontalAlignment="Center" IsVisible="{Binding HasRgb}">
                                                     <ItemsControl ItemsSource="{Binding Swatches}">
                                                         <ItemsControl.ItemsPanel>

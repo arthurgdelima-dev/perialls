@@ -13,7 +13,7 @@ public static class WindowsDevices
     private static readonly string[] Classes =
         ["Mouse", "Keyboard", "HIDClass", "XnaComposite", "XboxComposite", "AudioEndpoint", "Bluetooth"];
 
-    private sealed record WinPart(string Id, string Name, string Class, int ErrorCode, string? BusName);
+    private sealed record WinPart(string Id, string Name, string Class, int ErrorCode, string? BusName, bool IsInternal);
 
     public static List<PartGroup> List()
     {
@@ -36,19 +36,22 @@ public static class WindowsDevices
                     continue;
 
                 var container = DeviceProperties.GetGuid(id, DeviceProperties.ContainerId);
-                if (container == null || container == DeviceProperties.InternalContainer)
+                var isInternal = container == null || container == DeviceProperties.InternalContainer;
+                var key = isInternal ? id : container!.Value.ToString();
+                if (isInternal && cls is "HIDClass" or "Bluetooth")
                 {
-                    // Coisas internas ou virtuais: só mostramos mouse, teclado e áudio (ex.: teclado PS/2).
-                    if (cls is "HIDClass" or "Bluetooth")
+                    // Coisas internas ou virtuais. Mouse, teclado e áudio aparecem (ex.: teclado PS/2).
+                    // HID interno só se tiver código USB: é assim que a controladora RGB da placa-mãe
+                    // (ex.: ASUS Aura USB 0B05:19AF, num conector USB por dentro) é vista. As partes dele
+                    // ficam juntas pelo VID/PID; os que não tiverem RGB nem driver saem depois
+                    // (DeviceScanner.DropUnusedInternal).
+                    if (cls == "Bluetooth" || !id.StartsWith(@"HID\", StringComparison.OrdinalIgnoreCase) || HardwareId(id) is not { } hw)
                         continue;
+                    key = "internal:" + hw;
                 }
 
-                var key = container == null || container == DeviceProperties.InternalContainer
-                    ? id
-                    : container.Value.ToString();
-
                 var part = new WinPart(id, obj["Name"] as string ?? "", cls, errorCode,
-                    DeviceProperties.GetString(id, DeviceProperties.BusReportedName));
+                    DeviceProperties.GetString(id, DeviceProperties.BusReportedName), IsInternal: isInternal && cls == "HIDClass");
 
                 if (!groups.TryGetValue(key, out var list))
                     groups[key] = list = [];
@@ -96,7 +99,8 @@ public static class WindowsDevices
             IsUsb: p.Id.StartsWith(@"USB\"),
             HardwareId: HardwareId(p.Id),
             VendorId: FindVendor(p.Id),
-            Serial: FindSerial(p.Id))).ToList();
+            Serial: FindSerial(p.Id),
+            IsInternal: p.IsInternal)).ToList();
 
         return new PartGroup(converted, status, battery);
     }

@@ -77,6 +77,17 @@ public sealed class DeviceInfo : INotifyPropertyChanged
     private IImage? _photo;
     public bool HasPhoto => Photo != null;
 
+    // Ligado por dentro do PC (ex.: controladora RGB num conector USB da placa-mãe). No Windows esses
+    // aparelhos só aparecem se tiverem alguma função (RGB, driver); veja DeviceScanner.DropUnusedInternal.
+    public bool IsInternal { get; set; }
+
+    // Cartão da placa-mãe: a controladora RGB dela ou, sem controladora USB, um cartão só da placa.
+    // BoardRgbPath diz por onde vai o RGB (Aura USB, SMBus...); BoardNotice é o aviso do cartão.
+    public bool IsMotherboardRgb { get; set; }
+    public string? BoardRgbPath { get; set; }
+    public string? BoardNotice { get; set; }
+    public bool HasBoardNotice => BoardNotice != null;
+
     // Aparelho Bluetooth (o nome dele é o do produto, mesmo sem código USB).
     public bool IsBluetooth { get; set; }
 
