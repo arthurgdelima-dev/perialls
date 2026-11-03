@@ -192,5 +192,14 @@
 
   "profile.badName": "o nome precisa ter de 1 a {0} letras",
   "profile.badField": "campo \"{0}\" inválido",
-  "profile.badDevices": "\"devices\" precisa ter no máximo {0} aparelhos"
+  "profile.badDevices": "\"devices\" precisa ter no máximo {0} aparelhos",
+
+  "profiles.applying": "Aplicando o perfil \"{0}\"...",
+  "profiles.applyFailed": "Não deu para aplicar o perfil \"{0}\": {1}",
+  "profiles.applied": "Perfil \"{0}\" aplicado em {1} aparelhos.",
+  "profiles.failed": "Falhou: {0}",
+  "profiles.missing": "Não conectados (pulados): {0}",
+  "profiles.lighting": "iluminação",
+  "profiles.color": "cor {0}",
+  "error.notAvailableNow": "o aparelho não oferece isso agora (desligado?)"
 }

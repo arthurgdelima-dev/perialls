@@ -192,5 +192,14 @@
 
   "profile.badName": "the name must have 1 to {0} characters",
   "profile.badField": "invalid \"{0}\" field",
-  "profile.badDevices": "\"devices\" must have at most {0} devices"
+  "profile.badDevices": "\"devices\" must have at most {0} devices",
+
+  "profiles.applying": "Applying the \"{0}\" profile...",
+  "profiles.applyFailed": "Could not apply the \"{0}\" profile: {1}",
+  "profiles.applied": "Profile \"{0}\" applied to {1} devices.",
+  "profiles.failed": "Failed: {0}",
+  "profiles.missing": "Not connected (skipped): {0}",
+  "profiles.lighting": "lighting",
+  "profiles.color": "color {0}",
+  "error.notAvailableNow": "the device does not offer this right now (turned off?)"
 }

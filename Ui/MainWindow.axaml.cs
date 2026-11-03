@@ -367,22 +367,28 @@ public partial class MainWindow : Window
     // Depois de ligado, ele fica aberto até o Perialls fechar.
     private async Task<bool> EnsureRgbAsync()
     {
+        var error = await StartRgbAsync();
+        if (error != null)
+            StatusText.Text = Lang.T("status.rgbFailed", error);
+        return error == null;
+    }
+
+    // O mesmo, sem escrever o erro no rodapé: devolve o motivo, ou null se o RGB está ligado.
+    private async Task<string?> StartRgbAsync()
+    {
         if (_rgbOn)
-            return true;
+            return null;
 
         SyncButton.IsEnabled = false;
         StatusText.Text = Lang.T("status.rgbStarting");
         var error = await OpenRgb.EnsureRunningAsync();
         SyncButton.IsEnabled = true;
         if (error != null)
-        {
-            StatusText.Text = Lang.T("status.rgbFailed", error);
-            return false;
-        }
+            return error;
 
         _rgbOn = true;
         await RefreshAsync();
-        return true;
+        return null;
     }
 
     // "#FF8800" → (255, 136, 0). Se o texto não for uma cor, avisa no rodapé e devolve null.
