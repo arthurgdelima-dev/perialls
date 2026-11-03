@@ -19,6 +19,11 @@
     <PackageReference Include="System.Management" Version="8.0.0" />
   </ItemGroup>
 
+  <!-- Os testes (tests/Perialls.Tests) são um projeto à parte: não entram no executável. -->
+  <ItemGroup>
+    <Compile Remove="tests\**" />
+  </ItemGroup>
+
   <!-- Logo e fotos dos aparelhos: tudo em Assets vai para dentro do executável. -->
   <ItemGroup>
     <AvaloniaResource Include="Assets\**" Exclude="Assets\Lang\**" />

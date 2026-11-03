@@ -146,6 +146,13 @@ Precisa do [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0).
 dotnet run --project Perialls.csproj
 ```
 
+Testes automáticos (perfis: validação, foto das configurações, qual aparelho recebe o quê, exportar e
+importar). Não abrem o app e não enviam nada para os aparelhos:
+
+```
+dotnet test tests/Perialls.Tests
+```
+
 Para gerar o executável único (cerca de 45 MB, porque o .NET vai junto). Dá para gerar os dois
 de qualquer um dos sistemas:
 
