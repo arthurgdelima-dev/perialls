@@ -310,11 +310,14 @@ public partial class MainWindow
             ProfileStore.Current.Save();
             ShowDevices();
             ShowProfiles();
-            StatusText.Text = ProfileSummary(profile, results.SelectMany(r => r).ToList(), missing);
+            var all = results.SelectMany(r => r).ToList();
+            StatusText.Text = ProfileSummary(profile, all, missing);
+            foreach (var r in all.Where(r => r.Failed.Count > 0))
+                Diagnostics.RecordError(Lang.T("profiles.failed", $"{r.Device.Name} ({string.Join("; ", r.Failed)})"));
         }
         catch (Exception ex)
         {
-            StatusText.Text = Lang.T("profiles.applyFailed", profile.Name, ex.Message);
+            ShowFailure(Lang.T("profiles.applyFailed", profile.Name, ex.Message));
         }
         finally
         {

@@ -22,6 +22,8 @@
   <!-- Os testes (tests/Perialls.Tests) são um projeto à parte: não entram no executável. -->
   <ItemGroup>
     <Compile Remove="tests\**" />
+    <!-- Os testes também conferem partes internas (ex.: a comparação da cor lida de volta). -->
+    <InternalsVisibleTo Include="Perialls.Tests" />
   </ItemGroup>
 
   <!-- Logo e fotos dos aparelhos: tudo em Assets vai para dentro do executável. -->

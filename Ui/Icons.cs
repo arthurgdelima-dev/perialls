@@ -24,6 +24,7 @@ public static class Icons
     public static readonly Geometry Profiles = Parse("M12,3 L21,8 L12,13 L3,8 Z M3,12.5 L12,17.5 L21,12.5 M3,16.5 L12,21.5 L21,16.5");
     public static readonly Geometry Pencil = Parse("M4,20 H8 L19,9 A2.1,2.1 0 0 0 15,5 L4,16 Z M13.5,6.5 L17.5,10.5");
     public static readonly Geometry Trash = Parse("M4,7 H20 M9,7 V4.5 H15 V7 M6.5,7 L7.5,20 H16.5 L17.5,7 M10,11 V16 M14,11 V16");
+    public static readonly Geometry Clipboard = Parse("M9,4 H15 V7 H9 Z M9,5.5 H6 V21 H18 V5.5 H15 M9,11 H15 M9,14.5 H15 M9,18 H12.5");
     public static readonly Geometry Upload = Parse("M12,15 V4 M7.5,8.5 L12,4 L16.5,8.5 M5,19.5 H19");
 
     // O ícone escolhido conforme o tipo do aparelho (propriedade Icon do DeviceInfo).

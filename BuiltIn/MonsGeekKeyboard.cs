@@ -74,24 +74,53 @@ public static class MonsGeekKeyboard
 
     public sealed record State(string Model, Lighting Lighting, int? ReportRateHz);
 
-    // Lê o modelo, a iluminação e o Hz. Retorna null se não houver um modelo conhecido conectado.
+    // O que aconteceu na última busca pelo teclado (vai para o rodapé e para o diagnóstico).
+    // Null se nenhuma busca foi feita ainda.
+    public static string? LastProbe { get; private set; }
+
+    // Lê o modelo, a iluminação e o Hz. Retorna null se não houver um modelo conhecido conectado
+    // (o motivo fica em LastProbe).
     public static State? Query()
     {
-        using var channel = Channel.Open();
-        if (channel?.Model == null)
-            return null;
+        try
+        {
+            using var channel = Channel.Open(out var problem);
+            if (channel == null)
+            {
+                LastProbe = problem;
+                return null;
+            }
+            if (channel.Model == null)
+            {
+                LastProbe = channel.ModelId is int id ? Lang.T("akko.unknownModel", id) : Lang.T("akko.noInfo");
+                return null;
+            }
 
-        var lighting = channel.Request(CmdGetLighting) is byte[] l ? ParseLighting(l) : null;
-        if (lighting == null)
-            return null;
+            var lighting = channel.Request(CmdGetLighting) is byte[] l ? ParseLighting(l) : null;
+            if (lighting == null)
+            {
+                LastProbe = Lang.T("akko.noLighting");
+                return null;
+            }
 
-        return new State(channel.Model, lighting, ReadReportRate(channel));
+            LastProbe = Lang.T("akko.ok", channel.Model, channel.ModelId);
+            return new State(channel.Model, lighting, ReadReportRate(channel));
+        }
+        catch (Exception ex)
+        {
+            LastProbe = Lang.T("akko.error", ex.Message);
+            throw;
+        }
     }
 
+    // Envia e depois pergunta ao teclado a iluminação atual, para ter certeza de que ele aplicou.
+    // Se ele não confirmar, dá erro com o motivo (nunca "deu certo" sem saber).
     public static void SetLighting(Lighting lighting)
     {
-        using var channel = Channel.Open();
-        if (channel?.Model == null)
+        using var channel = Channel.Open(out var problem);
+        if (channel == null)
+            throw new InvalidOperationException(Lang.T("error.keyboardDisconnected") + " (" + problem + ")");
+        if (channel.Model == null)
             throw new InvalidOperationException(Lang.T("error.keyboardDisconnected"));
 
         // O driver oficial troca o branco puro por FAFFFA antes de enviar; fazemos igual.
@@ -109,6 +138,44 @@ public static class MonsGeekKeyboard
             r, g, b,
         ];
         channel.Write(message, checksumAt: 8);
+        Confirm(channel, lighting);
+    }
+
+    // Lê a iluminação de volta (algumas tentativas: o teclado leva um instante para trocar).
+    private static void Confirm(Channel channel, Lighting sent)
+    {
+        string? mismatch = null;
+        for (int attempt = 0; attempt < 4; attempt++)
+        {
+            Thread.Sleep(attempt == 0 ? 80 : 200);
+            if (channel.Request(CmdGetLighting) is not byte[] reply)
+                continue;
+            mismatch = Mismatch(sent, ParseLighting(reply));
+            if (mismatch == null)
+                return;
+        }
+        throw new InvalidOperationException(mismatch == null
+            ? Lang.T("error.keyboardNoConfirm")
+            : Lang.T("error.keyboardIgnored", mismatch));
+    }
+
+    // Compara o que foi enviado com o que o teclado diz que está usando. Só o que importa para a cor:
+    // efeito, brilho e (em cor única, com os LEDs acesos) a cor. Devolve null se bate, ou o que mudou.
+    internal static string? Mismatch(Lighting sent, Lighting read)
+    {
+        var problems = new List<string>();
+        if (read.Effect != sent.Effect)
+            problems.Add($"{Lang.T("control.effect")} {sent.Effect} → {read.Effect}");
+        if (read.Brightness != Math.Min(sent.Brightness, (byte)4))
+            problems.Add($"{Lang.T("control.brightness")} {sent.Brightness} → {read.Brightness}");
+        if (!sent.Multicolor && sent.Brightness > 0)
+        {
+            if (read.Multicolor)
+                problems.Add(Lang.T("akko.stillMulticolor"));
+            else if ((read.R, read.G, read.B) != (sent.R, sent.G, sent.B))
+                problems.Add($"{Lang.T("control.color")} #{sent.R:X2}{sent.G:X2}{sent.B:X2} → #{read.R:X2}{read.G:X2}{read.B:X2}");
+        }
+        return problems.Count == 0 ? null : string.Join(", ", problems);
     }
 
     public static void SetReportRate(int hz)
@@ -117,7 +184,7 @@ public static class MonsGeekKeyboard
         if (index < 0)
             throw new ArgumentException(Lang.T("error.badRate", hz));
 
-        using var channel = Channel.Open();
+        using var channel = Channel.Open(out _);
         if (channel?.Model == null)
             throw new InvalidOperationException(Lang.T("error.keyboardDisconnected"));
 
@@ -125,7 +192,7 @@ public static class MonsGeekKeyboard
     }
 
     // Resposta do 0x87: [cmd, efeito, 4 - velocidade, brilho, opção << 4 | modo de cor, R, G, B].
-    private static Lighting? ParseLighting(byte[] r)
+    private static Lighting ParseLighting(byte[] r)
     {
         var (red, green, blue) = (r[5], r[6], r[7]) == (0xFA, 0xFF, 0xFA) ? ((byte)255, (byte)255, (byte)255) : (r[5], r[6], r[7]);
         return new Lighting(
@@ -152,21 +219,37 @@ public static class MonsGeekKeyboard
 
         private readonly HidStream _stream;
         public string? Model { get; }
+        public int? ModelId { get; } // o ID que o teclado informa (2304 = FUN60 PRO)
 
         private Channel(HidStream stream)
         {
             _stream = stream;
-            if (Request(CmdGetInfo) is byte[] info && KnownModels.TryGetValue((info[2] << 8) | info[1], out var model))
-                Model = model;
+            if (Request(CmdGetInfo) is byte[] info)
+            {
+                ModelId = (info[2] << 8) | info[1];
+                Model = KnownModels.GetValueOrDefault(ModelId.Value);
+            }
         }
 
-        public static Channel? Open()
+        // Abre a interface de configuração. Se não der, "problem" diz o porquê.
+        public static Channel? Open(out string problem)
         {
             // A configuração fica na interface 2 (MI_02); as outras são as teclas normais, mídia etc.
-            var device = DeviceList.Local.GetHidDevices(Vid, Pid).FirstOrDefault(d =>
-                IsConfigInterface(d) && FeatureLength(d) == ReportLength);
-            if (device == null || !device.TryOpen(out HidStream stream))
+            var all = DeviceList.Local.GetHidDevices(Vid, Pid).ToList();
+            var device = all.FirstOrDefault(d => IsConfigInterface(d) && FeatureLength(d) == ReportLength);
+            if (device == null)
+            {
+                problem = all.Count == 0 ? Lang.T("akko.notFound")
+                    : Lang.T("akko.noConfigInterface", all.Count,
+                        string.Join("; ", all.Select(d => $"{ShortPath(d)} feature={FeatureLength(d)}")));
                 return null;
+            }
+            if (!device.TryOpen(out HidStream stream))
+            {
+                problem = OperatingSystem.IsLinux() ? Lang.T("error.noPermissionLinux") : Lang.T("error.busy");
+                return null;
+            }
+            problem = "";
 
             try
             {
@@ -193,6 +276,14 @@ public static class MonsGeekKeyboard
             {
                 return false;
             }
+        }
+
+        // O fim do caminho do aparelho já diz a interface (ex.: "...&mi_02#...") sem expor o resto.
+        private static string ShortPath(HidDevice d)
+        {
+            var path = d.DevicePath;
+            var mi = path.IndexOf("mi_", StringComparison.OrdinalIgnoreCase);
+            return mi >= 0 ? path.Substring(mi, Math.Min(5, path.Length - mi)) : Path.GetFileName(path);
         }
 
         private static int FeatureLength(HidDevice d)
