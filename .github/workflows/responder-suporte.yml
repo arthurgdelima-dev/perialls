@@ -1,0 +1,29 @@
+# Responde sozinho aos pedidos de suporte (template pedir-suporte.yml, aberto pelo ícone ➕ do app).
+# Confere o código USB em drivers/ e diz se o aparelho já tem driver, se o OpenRGB cuida dele,
+# se já existe outro pedido igual, ou como ajudar a fazer o driver. Não usa IA nem chave nenhuma.
+name: Responder pedido de suporte
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write # para comentar no pedido
+
+jobs:
+  responder:
+    if: contains(github.event.issue.labels.*.name, 'pedido de suporte') || startsWith(github.event.issue.title, 'Suporte para') || startsWith(github.event.issue.title, 'Support for')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            drivers
+            .github/scripts
+
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const { run } = require('./.github/scripts/responder-suporte.js');
+            await run({ github, context, core });
